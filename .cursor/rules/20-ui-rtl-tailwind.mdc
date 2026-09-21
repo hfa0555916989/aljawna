@@ -1,0 +1,15 @@
+---
+description: قواعد الواجهة العربية RTL وTailwind
+globs: ["resources/**/*.blade.php", "resources/css/**", "resources/js/**", "app/Livewire/**"]
+alwaysApply: false
+---
+- الصفحة `dir="rtl" lang="ar"`. استخدم خصائص Tailwind المنطقية (`ms-`, `me-`, `ps-`, `pe-`, `start`, `end`)؛ لا `ml-`/`mr-`/`left-`/`right-` إلا بسبب مبرَّر ومكتوب.
+- الأرقام الحساسة (جوال، آيبان، حساب) داخل عنصر `dir="ltr"` مع `text-start`، بأرقام لاتينية.
+- **لا تقتطع أسماء المستفيدين بنقاط (…)**: دعها تلتف على عدة أسطر (`break-words`، بلا `truncate`).
+- الجوال أولًا (360px)، وأهداف اللمس 44px على الأقل، وتباين WCAG AA.
+- حالة التركيز ظاهرة لكل عنصر تفاعلي، واحترم `prefers-reduced-motion`.
+- الألوان والخطوط من `docs/DESIGN-TOKENS.md` كمتغيرات CSS؛ لا ألوان ثابتة داخل الأصناف.
+- الخطوط مستضافة محليًا (IBM Plex Sans Arabic، Aref Ruqaa للشعار). لا CDN خطوط.
+- ميتا `viewport-fit=cover` مع هوامش `env(safe-area-inset-*)` للشريط العلوي والسفلي.
+- أزرار النسخ: تعرض تأكيد "تم النسخ" وتعمل على الجوال والكمبيوتر، وتتراجع بأمان إن رفض المتصفح الحافظة.
+- لا اعتماد على `localStorage` لأي حالة مهمة.

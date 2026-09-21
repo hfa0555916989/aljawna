@@ -1,0 +1,15 @@
+---
+description: قواعد PHP وLaravel
+globs: ["**/*.php"]
+alwaysApply: false
+---
+- ابدأ كل ملف PHP بـ `declare(strict_types=1);`.
+- التحقق عبر Form Requests أو قواعد مخصصة (`app/Rules`)، لا داخل المتحكمات.
+- المنطق في Actions/Services (`app/Actions`, `app/Services`)، والمتحكمات ومكونات Livewire للتنسيق فقط.
+- استخدم Enums لـ `role` و`status` وأنواع الإجراءات، ولا سلاسل مبعثرة.
+- كل عملية تمسّ المال أو الصلاحيات أو الحسابات البنكية داخل `DB::transaction` وتُسجَّل في `audit_logs`.
+- الصلاحيات عبر Policies/Gates بمفاتيح المواصفة (مثل `transfers.review`)، ولا تفحص اسم الدور إلا للمدير.
+- تجنّب N+1: استخدم `with()` وأضف اختبارًا للصفحات الثقيلة.
+- المبالغ `decimal`، ولا تستخدم `float` للمال.
+- رسائل التحقق والأخطاء بالعربية في `lang/ar`.
+- التنسيق: Laravel Pint. التحليل: Larastan بمستوى 8 على الأقل.

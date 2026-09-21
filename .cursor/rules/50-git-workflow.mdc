@@ -1,0 +1,9 @@
+---
+description: سير العمل مع Git
+alwaysApply: true
+---
+- الفرع: `task/T05-beneficiaries` (رقم المهمة + اسم قصير). لا دفع مباشر إلى `main`.
+- رسائل الـ commit: `type(scope): وصف` مثل `feat(beneficiaries): add IBAN rule`.
+- التزامات صغيرة ومتتابعة. لا ملفات مولّدة أو `vendor` أو `.env`.
+- قبل الـ PR: `composer lint && composer analyse && composer test`.
+- الدمج بعد نجاح CI ومراجعتك. الدمج squash.
