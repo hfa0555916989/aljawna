@@ -1,0 +1,38 @@
+name: ajawna
+
+services:
+    postgres:
+        image: postgres:17
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: ${DB_DATABASE:-ajawna}
+            POSTGRES_USER: ${DB_USERNAME:-ajawna}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+        ports:
+            - '${FORWARD_DB_PORT:-5432}:5432'
+        volumes:
+            - ajawna-postgres:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD', 'pg_isready', '-U', '${DB_USERNAME:-ajawna}']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        ports:
+            - '${FORWARD_REDIS_PORT:-6379}:6379'
+        volumes:
+            - ajawna-redis:/data
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+volumes:
+    ajawna-postgres:
+        driver: local
+    ajawna-redis:
+        driver: local
