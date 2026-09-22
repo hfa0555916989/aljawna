@@ -1,0 +1,17 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+
+    # المستوى 8 على الأقل (.cursor/rules/10-laravel-php.mdc)
+    level: 8
+
+    tmpDir: storage/framework/phpstan
+
+#    ignoreErrors:
+#        - '#PHPDoc tag @var#'
+#
+#    excludePaths:
+#        - ./*/*/FileToBeExcluded.php
