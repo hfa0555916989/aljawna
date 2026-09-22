@@ -21,6 +21,7 @@
 /public/js/filament
 /public/storage
 /storage/*.key
+/storage/framework/phpstan
 /storage/pail
 /vendor
 _ide_helper.php
