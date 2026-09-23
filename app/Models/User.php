@@ -6,6 +6,10 @@ namespace App\Models;
 
 use App\UserRole;
 use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasName;
+use Filament\Pages\Dashboard;
+use Filament\Panel;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -17,10 +21,52 @@ use Spatie\Permission\Traits\HasPermissions;
 
 #[Fillable(['full_name', 'phone', 'password', 'role', 'is_active', 'show_contact', 'registered_ip', 'last_login_ip', 'last_login_at'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser, HasName
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasPermissions, Notifiable;
+
+    /**
+     * لوحة الإدارة للمشرف والمدير الفعّالين فقط، وتُفحص في كل طلب (docs/SPEC.md §2).
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $panel->getId() === 'admin'
+            && $this->is_active
+            && $this->hasPanelRole();
+    }
+
+    /**
+     * هل دور المستخدم من أدوار لوحة الإدارة (مشرف أو مدير)؟ لا يفحص التفعيل.
+     */
+    public function hasPanelRole(): bool
+    {
+        return in_array($this->role, [UserRole::Supervisor, UserRole::Admin], true);
+    }
+
+    /**
+     * وجهة المستخدم بعد الدخول أو عند زيارة صفحة الدخول بجلسة قائمة:
+     * المشرف والمدير إلى /admin، والمبادر إلى /dashboard.
+     */
+    public function homeUrl(): string
+    {
+        return $this->hasPanelRole()
+            ? Dashboard::getUrl(panel: 'admin')
+            : route('dashboard');
+    }
+
+    public function getFilamentName(): string
+    {
+        return $this->full_name;
+    }
+
+    /**
+     * مشرف لم يُمنح أي صلاحية مباشرة بعد.
+     */
+    public function isSupervisorWithoutPermissions(): bool
+    {
+        return $this->role === UserRole::Supervisor && ! $this->permissions()->exists();
+    }
 
     /**
      * هل مُنح المستخدم هذه الصلاحية مباشرة؟ لا يشمل منح المدير الضمني؛

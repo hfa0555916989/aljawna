@@ -14,6 +14,7 @@ use Livewire\Component;
 
 /**
  * صفحة دخول المبادر /login بالجوال وكلمة المرور (docs/SPEC.md §3, FR-5).
+ * المشرف والمدير يُحوَّلان مباشرة إلى لوحة الإدارة /admin.
  */
 #[Title('تسجيل الدخول')]
 class Login extends Component
@@ -40,7 +41,13 @@ class Login extends Component
         Auth::login($user);
         Session::regenerate();
 
-        $this->redirectIntended(route('dashboard'));
+        if ($user->hasPanelRole()) {
+            $this->redirect($user->homeUrl());
+
+            return;
+        }
+
+        $this->redirectIntended($user->homeUrl());
     }
 
     public function render(): View
