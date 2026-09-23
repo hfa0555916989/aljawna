@@ -8,6 +8,7 @@ use App\Models\LoginAttempt;
 use App\Models\User;
 use App\Services\LoginThrottle;
 use App\Support\SaudiPhone;
+use Closure;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -20,9 +21,14 @@ class LoginUser
     public function __construct(private LoginThrottle $throttle) {}
 
     /**
+     * من لا يحقق $isEligible يُعامَل تمامًا كبيانات خاطئة: محاولة فاشلة
+     * تُحتسب في القفل، والرسالة الموحّدة، ولا تُكشف حالة حسابه.
+     *
+     * @param  (Closure(User): bool)|null  $isEligible
+     *
      * @throws ValidationException
      */
-    public function handle(string $phoneInput, string $password, string $ip): User
+    public function handle(string $phoneInput, string $password, string $ip, ?Closure $isEligible = null): User
     {
         $phone = SaudiPhone::normalize($phoneInput);
         $identifier = $phone ?? mb_substr(trim($phoneInput), 0, 32);
@@ -39,7 +45,11 @@ class LoginUser
 
         $user = $phone === null ? null : User::query()->where('phone', $phone)->first();
 
-        if ($user === null || ! Hash::check($password, $user->password)) {
+        if (
+            $user === null
+            || ! Hash::check($password, $user->password)
+            || ($isEligible !== null && ! $isEligible($user))
+        ) {
             $this->recordAttempt($identifier, $ip, succeeded: false);
             $this->throttle->recordFailure($identifier, $ip);
 

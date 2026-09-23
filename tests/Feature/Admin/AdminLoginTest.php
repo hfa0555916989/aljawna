@@ -66,19 +66,37 @@ test('الجوال بالأرقام العربية الهندية يُقبل ف�
     expect(Auth::id())->toBe($admin->id);
 });
 
-test('المبادر يُحوَّل إلى /dashboard ولا يدخل اللوحة', function (): void {
-    $user = User::factory()->create(['phone' => '+966512345678', 'password' => 'S3cure-pass']);
+test('المبادر يُرفض بالرسالة الموحّدة دون تسجيل دخول، تمامًا كبيانات خاطئة', function (bool $isActive): void {
+    $user = User::factory()->create([
+        'phone' => '+966512345678',
+        'password' => 'S3cure-pass',
+        'is_active' => $isActive,
+    ]);
 
     attemptAdminLogin('0512345678', 'S3cure-pass')
-        ->assertHasNoFormErrors()
-        ->assertRedirect(route('dashboard'));
+        ->assertHasErrors(['data.phone'])
+        ->assertSee('بيانات الدخول غير صحيحة')
+        ->assertDontSee('حسابك معطَّل')
+        ->assertNoRedirect();
 
-    expect(Auth::id())->toBe($user->id);
+    expect(Auth::check())->toBeFalse()
+        ->and(LoginAttempt::query()->sole()->succeeded)->toBeFalse()
+        ->and($user->refresh()->last_login_at)->toBeNull();
+})->with(['فعّال' => true, 'معطَّل' => false]);
 
-    $this->get('/admin')->assertRedirect(route('dashboard'));
+test('محاولات المبادر في دخول اللوحة تُحتسب في القفل المؤقت', function (): void {
+    User::factory()->create(['phone' => '+966512345678', 'password' => 'S3cure-pass']);
+
+    foreach (range(1, 5) as $attempt) {
+        attemptAdminLogin('0512345678', 'S3cure-pass')->assertSee('بيانات الدخول غير صحيحة');
+    }
+
+    attemptAdminLogin('0512345678', 'S3cure-pass')->assertSee('أُوقف الدخول مؤقتًا');
+
+    expect(Auth::check())->toBeFalse();
 });
 
-test('الحساب المعطَّل يُمنع برسالة التواصل مع الإدارة', function (string $role): void {
+test('الحساب المعطَّل للمشرف أو المدير يُمنع برسالة التواصل مع الإدارة', function (string $role): void {
     User::factory()->inactive()->create([
         'phone' => '+966512345678',
         'password' => 'S3cure-pass',
@@ -90,7 +108,7 @@ test('الحساب المعطَّل يُمنع برسالة التواصل مع 
         ->assertSee('حسابك معطَّل. تواصل مع إدارة المبادرة.');
 
     expect(Auth::check())->toBeFalse();
-})->with(['admin', 'supervisor', 'user']);
+})->with(['admin', 'supervisor']);
 
 test('بيانات خاطئة تُرفض برسالة موحّدة ولا تكشف أي الحقلين خاطئ', function (string $phone, string $password): void {
     User::factory()->admin()->create(['phone' => '+966512345678', 'password' => 'S3cure-pass']);

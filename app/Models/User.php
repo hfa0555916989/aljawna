@@ -32,7 +32,15 @@ class User extends Authenticatable implements FilamentUser, HasName
     {
         return $panel->getId() === 'admin'
             && $this->is_active
-            && in_array($this->role, [UserRole::Supervisor, UserRole::Admin], true);
+            && $this->hasPanelRole();
+    }
+
+    /**
+     * هل دور المستخدم من أدوار لوحة الإدارة (مشرف أو مدير)؟ لا يفحص التفعيل.
+     */
+    public function hasPanelRole(): bool
+    {
+        return in_array($this->role, [UserRole::Supervisor, UserRole::Admin], true);
     }
 
     public function getFilamentName(): string

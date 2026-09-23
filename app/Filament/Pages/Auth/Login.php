@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages\Auth;
 
 use App\Actions\Auth\LoginUser;
+use App\Models\User;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Facades\Filament;
@@ -16,7 +17,8 @@ use Illuminate\Validation\ValidationException;
 /**
  * دخول لوحة الإدارة بالجوال وكلمة المرور (docs/SPEC.md §3, T04).
  * يعيد استخدام LoginUser، فيسري تحديد المحاولات وسجل login_attempts
- * والرسالة الموحّدة ومنع الحساب المعطَّل كما في /login. المبادر يُحوَّل إلى /dashboard.
+ * والرسالة الموحّدة ومنع الحساب المعطَّل كما في /login. المبادر يُرفض
+ * بالرسالة الموحّدة دون تسجيل دخول، تمامًا كبيانات خاطئة.
  */
 class Login extends BaseLogin
 {
@@ -26,7 +28,12 @@ class Login extends BaseLogin
         $data = $this->form->getState();
 
         try {
-            $user = app(LoginUser::class)->handle($data['phone'], $data['password'], (string) request()->ip());
+            $user = app(LoginUser::class)->handle(
+                $data['phone'],
+                $data['password'],
+                (string) request()->ip(),
+                isEligible: fn (User $user): bool => $user->hasPanelRole(),
+            );
         } catch (ValidationException $exception) {
             $this->form->fill(['phone' => $data['phone']]);
 
@@ -37,12 +44,6 @@ class Login extends BaseLogin
 
         Filament::auth()->login($user);
         session()->regenerate();
-
-        if (! $this->isUserAllowedToAccessPanel($user)) {
-            $this->redirectRoute('dashboard');
-
-            return null;
-        }
 
         return app(LoginResponse::class);
     }
