@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Support\SaudiIban;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -52,4 +53,26 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * بيانات وهمية صالحة لنموذج المستفيد في اللوحة (لا بيانات حقيقية).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function beneficiaryFormData(array $overrides = []): array
+{
+    return [
+        'display_name' => 'سالم ماجد تركي العجاوني',
+        'account_holder' => 'سالم ماجد تركي العجاوني',
+        'bank_name' => 'مصرف الراجحي',
+        'account_number' => '123456789012345',
+        'iban' => SaudiIban::fromParts('80', '000000123456789012'),
+        'target_amount' => '45000',
+        'target_deadline' => '2026-12-01',
+        'recommended_deadline' => '2026-11-01',
+        'wedding_date' => '2027-01-15',
+        ...$overrides,
+    ];
 }
