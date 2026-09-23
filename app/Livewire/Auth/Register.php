@@ -64,15 +64,15 @@ class Register extends Component
 
     public function register(RegisterUser $registerUser, Turnstile $turnstile): void
     {
+        $ip = (string) request()->ip();
+
+        $registerUser->consumeAttempt($ip);
+
         if ($this->website !== '') {
             throw ValidationException::withMessages(['form' => __('auth.honeypot')]);
         }
 
         $this->validate();
-
-        $ip = (string) request()->ip();
-
-        $registerUser->ensureIsNotThrottled($ip);
 
         if (! $turnstile->verify($this->turnstileToken, $ip)) {
             $this->resetTurnstile();

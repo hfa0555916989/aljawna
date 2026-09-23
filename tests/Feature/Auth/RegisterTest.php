@@ -191,6 +191,20 @@ test('حدّ التسجيل لكل IP في الساعة', function (): void {
     expect(User::query()->count())->toBe(3);
 });
 
+test('المحاولات الفاشلة تُحتسب ضمن حدّ التسجيل', function (): void {
+    config(['security.register.max_per_ip_per_hour' => 2]);
+
+    registerForm(['full_name' => 'أحمد محمد'])->call('register')->assertHasErrors(['full_name']);
+    registerForm(['website' => 'https://spam.example'])->call('register')->assertHasErrors(['form']);
+
+    registerForm()
+        ->call('register')
+        ->assertHasErrors(['form'])
+        ->assertSee('تجاوزت عدد محاولات التسجيل');
+
+    expect(User::query()->count())->toBe(0);
+});
+
 test('المستخدم المسجّل دخوله يُحوَّل من صفحة التسجيل إلى اللوحة', function (): void {
     $this->actingAs(User::factory()->create())
         ->get('/register')

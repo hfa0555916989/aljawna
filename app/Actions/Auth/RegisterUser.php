@@ -19,9 +19,11 @@ class RegisterUser
     private const DECAY_SECONDS = 3600;
 
     /**
+     * يستهلك محاولة تسجيل من حدّ الـ IP. كل محاولة تُحتسب، ناجحة كانت أو فاشلة.
+     *
      * @throws ValidationException
      */
-    public function ensureIsNotThrottled(string $ip): void
+    public function consumeAttempt(string $ip): void
     {
         $key = $this->throttleKey($ip);
 
@@ -32,6 +34,8 @@ class RegisterUser
                 ]),
             ]);
         }
+
+        RateLimiter::hit($key, self::DECAY_SECONDS);
     }
 
     /**
@@ -41,8 +45,6 @@ class RegisterUser
      */
     public function handle(string $fullName, string $phone, string $password, string $ip): User
     {
-        $this->ensureIsNotThrottled($ip);
-
         try {
             $user = User::query()->create([
                 'full_name' => preg_replace('/\s+/u', ' ', trim($fullName)) ?? trim($fullName),
@@ -57,8 +59,6 @@ class RegisterUser
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages(['phone' => __('auth.phone_taken')]);
         }
-
-        RateLimiter::hit($this->throttleKey($ip), self::DECAY_SECONDS);
 
         return $user;
     }
