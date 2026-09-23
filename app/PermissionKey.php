@@ -10,7 +10,7 @@ namespace App;
 enum PermissionKey: string
 {
     /**
-     * الصلاحيات الحساسة جدًا: لا تُمنح إلا بقرار واعٍ (docs/SPEC.md §2, §12.5).
+     * الصلاحيات الحساسة جدًا: يمنحها المدير وحده (docs/SPEC.md §2, §12.5).
      */
     public const SENSITIVE_PERMISSIONS = [
         self::RecoveryOtherNumber,

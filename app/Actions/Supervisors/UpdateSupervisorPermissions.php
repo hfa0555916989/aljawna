@@ -16,8 +16,9 @@ use Spatie\Permission\PermissionRegistrar;
 
 /**
  * نقطة التعديل الوحيدة لصلاحيات مشرف، بقواعد docs/SPEC.md §2:
- * لا يعدّل المشرف صلاحيات نفسه، ولا يمنح ما لا يملكه، ولا تُمس صلاحيات المدير،
- * وتُفرض اعتماديات الصلاحيات، ويُسجَّل كل تغيير في سجل التدقيق.
+ * لا يعدّل المشرف صلاحيات نفسه، ولا يمنح ما لا يملكه، ولا يمنح صلاحية حساسة
+ * (المدير وحده يمنحها)، ولا تُمس صلاحيات المدير، وتُفرض اعتماديات الصلاحيات،
+ * ويُسجَّل كل تغيير في سجل التدقيق.
  */
 class UpdateSupervisorPermissions
 {
@@ -137,6 +138,17 @@ class UpdateSupervisorPermissions
      */
     private function ensureActorOwns(User $actor, array $granted): void
     {
+        $sensitive = array_values(array_filter(
+            $granted,
+            fn (string $permission): bool => PermissionKey::tryFrom($permission)?->isSensitive() ?? false,
+        ));
+
+        if ($sensitive !== [] && ! $actor->isActiveAdmin()) {
+            throw new AuthorizationException(__('permissions.errors.sensitive_admin_only', [
+                'permissions' => implode('، ', $sensitive),
+            ]));
+        }
+
         $notOwned = array_values(array_filter($granted, fn (string $permission): bool => ! $actor->can($permission)));
 
         if ($notOwned !== []) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Actions\Supervisors\UpdateSupervisorPermissions;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\PermissionKey;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
@@ -66,11 +67,43 @@ test('المشرف لا يمنح غيره صلاحية لا يملكها', funct
     $manager = User::factory()->supervisor()->withPermissions(['supervisors.manage', 'users.view'])->create();
     $target = User::factory()->supervisor()->create();
 
-    expect(fn () => $this->action->handle($manager, $target, ['users.view', 'settings.manage']))
-        ->toThrow(AuthorizationException::class, 'لا يمكنك منح صلاحية لا تملكها: settings.manage');
+    expect(fn () => $this->action->handle($manager, $target, ['users.view', 'users.suspend']))
+        ->toThrow(AuthorizationException::class, 'لا يمكنك منح صلاحية لا تملكها: users.suspend');
 
     expect(permissionNames($target))->toBe([]);
     expect(AuditLog::query()->count())->toBe(0);
+});
+
+test('مشرف بصلاحية supervisors.manage لا يمنح صلاحية حساسة حتى لو ملكها', function (string $permission): void {
+    $manager = User::factory()->supervisor()
+        ->withPermissions(['supervisors.manage', 'recovery.handle', 'recovery.other_number', 'recovery.change_phone', 'beneficiaries.manage', 'settings.manage', 'content.manage'])
+        ->create();
+    $target = User::factory()->supervisor()->withPermissions(['recovery.handle'])->create();
+
+    expect($manager->can($permission))->toBeTrue();
+
+    expect(fn () => $this->action->handle($manager, $target, ['recovery.handle', $permission]))
+        ->toThrow(AuthorizationException::class, 'الصلاحيات الحساسة يمنحها المدير وحده: '.$permission);
+
+    expect(permissionNames($target))->toBe(['recovery.handle']);
+    expect(AuditLog::query()->count())->toBe(0);
+})->with(array_map(fn (PermissionKey $key): string => $key->value, PermissionKey::SENSITIVE_PERMISSIONS));
+
+test('المدير يمنح كل صلاحية حساسة', function (string $permission): void {
+    $target = User::factory()->supervisor()->withPermissions(['recovery.handle'])->create();
+
+    $this->action->handle($this->admin, $target, ['recovery.handle', $permission]);
+
+    expect(permissionNames($target))->toContain($permission);
+})->with(array_map(fn (PermissionKey $key): string => $key->value, PermissionKey::SENSITIVE_PERMISSIONS));
+
+test('مشرف بصلاحية supervisors.manage يُبقي صلاحية حساسة ممنوحة سابقًا ويعدّل غيرها', function (): void {
+    $manager = User::factory()->supervisor()->withPermissions(['supervisors.manage', 'users.view'])->create();
+    $target = User::factory()->supervisor()->withPermissions(['beneficiaries.manage'])->create();
+
+    $this->action->handle($manager, $target, ['beneficiaries.manage', 'users.view']);
+
+    expect(permissionNames($target))->toBe(['beneficiaries.manage', 'users.view']);
 });
 
 test('المشرف يمنح غيره صلاحية يملكها', function (): void {

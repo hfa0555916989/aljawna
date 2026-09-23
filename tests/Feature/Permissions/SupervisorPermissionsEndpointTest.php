@@ -69,10 +69,26 @@ test('المشرف يمنح عبر الرابط صلاحية لا يملكها �
     $manager = User::factory()->supervisor()->withPermissions(['supervisors.manage'])->create();
 
     $this->actingAs($manager)
-        ->put(updatePermissionsUrl($this->target), ['permissions' => ['users.view', 'beneficiaries.manage']])
+        ->put(updatePermissionsUrl($this->target), ['permissions' => ['users.view', 'users.suspend']])
         ->assertForbidden();
 
     expect($this->target->fresh()->permissions->pluck('name')->all())->toBe(['users.view']);
+});
+
+test('المشرف يمنح عبر الرابط صلاحية حساسة يملكها فيُرفض 403، والمدير ينجح', function (): void {
+    $manager = User::factory()->supervisor()->withPermissions(['supervisors.manage', 'settings.manage'])->create();
+
+    $this->actingAs($manager)
+        ->put(updatePermissionsUrl($this->target), ['permissions' => ['users.view', 'settings.manage']])
+        ->assertForbidden();
+
+    expect($this->target->fresh()->permissions->pluck('name')->all())->toBe(['users.view']);
+
+    $this->actingAs($this->admin)
+        ->put(updatePermissionsUrl($this->target), ['permissions' => ['users.view', 'settings.manage']])
+        ->assertRedirect();
+
+    expect($this->target->fresh()->permissions->pluck('name')->sort()->values()->all())->toBe(['settings.manage', 'users.view']);
 });
 
 test('محاولة سحب صلاحيات آخر مدير عبر الرابط تُرفض 403', function (): void {
