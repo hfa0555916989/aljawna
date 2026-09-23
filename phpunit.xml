@@ -20,6 +20,10 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <!-- بيانات مدير أول للاختبارات فقط (T01)، ليست بيانات حقيقية. -->
+        <env name="ADMIN_NAME" value="مدير النظام الأول للاختبار"/>
+        <env name="ADMIN_PHONE" value="+966500000099"/>
+        <env name="ADMIN_PASSWORD" value="Testing@12345678"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
