@@ -65,7 +65,10 @@
     --color-muted: var(--muted);
     --color-line: var(--line);
     --color-pri: var(--pri);
+    --color-pri-ink: var(--pri-ink);
     --color-brass: var(--brass);
+    --color-bad: var(--bad);
+    --color-good: var(--good);
 }
 
 :root {
@@ -75,7 +78,10 @@
     --muted: #586c67;
     --line: #d3ded8;
     --pri: #0f4c45;
+    --pri-ink: #ffffff;
     --brass: #b58a2a;
+    --bad: #a33a2b;
+    --good: #2c7a54;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -86,8 +92,16 @@
         --muted: #9bb1ab;
         --line: #27413c;
         --pri: #3fa593;
+        --pri-ink: #062320;
         --brass: #d6ac54;
+        /* لا قيم داكنة لـ bad/good في DESIGN-TOKENS؛ درجات أفتح لتحقيق تباين AA. */
+        --bad: #e07a6b;
+        --good: #5cc08f;
     }
+}
+
+[x-cloak] {
+    display: none !important;
 }
 
 body {

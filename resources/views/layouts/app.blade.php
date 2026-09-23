@@ -22,6 +22,19 @@
                     <a href="{{ url('/') }}" class="min-h-11 flex items-center px-2 text-ink hover:text-pri">
                         الرئيسية
                     </a>
+                    @guest
+                        <a href="{{ route('login') }}" class="min-h-11 flex items-center px-2 text-ink hover:text-pri">
+                            الدخول
+                        </a>
+                        <a href="{{ route('register') }}" class="min-h-11 flex items-center px-2 text-ink hover:text-pri">
+                            إنشاء حساب
+                        </a>
+                    @endguest
+                    @auth
+                        <a href="{{ route('dashboard') }}" class="min-h-11 flex items-center px-2 text-ink hover:text-pri">
+                            لوحتي
+                        </a>
+                    @endauth
                 </nav>
             </div>
         </header>

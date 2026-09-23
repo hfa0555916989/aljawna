@@ -41,6 +41,8 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- Turnstile معطَّل في الاختبارات؛ مسار الفشل يُختبر بتفعيله داخل الاختبار. -->
+        <env name="TURNSTILE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
 </phpunit>
