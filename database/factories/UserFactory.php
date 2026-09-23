@@ -77,6 +77,16 @@ class UserFactory extends Factory
     }
 
     /**
+     * حالة: صلاحيات مباشرة (تتطلب بذر PermissionSeeder مسبقًا).
+     *
+     * @param  list<string>  $permissions
+     */
+    public function withPermissions(array $permissions): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->givePermissionTo($permissions));
+    }
+
+    /**
      * اسم كامل عربي مكوَّن من أربع كلمات فأكثر، يوافق قاعدة App\Rules\FullName.
      */
     private function fakeFullName(): string
