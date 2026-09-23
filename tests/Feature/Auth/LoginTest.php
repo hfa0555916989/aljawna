@@ -160,6 +160,26 @@ test('المستخدم المسجّل دخوله يُحوَّل من صفحة ا
         ->assertRedirect(route('dashboard'));
 });
 
+test('المشرف والمدير بجلسة قائمة يُحوَّلان من /login إلى /admin', function (string $role): void {
+    $this->user->update(['role' => $role]);
+
+    $this->actingAs($this->user)
+        ->get('/login')
+        ->assertRedirect(url('/admin'));
+})->with(['supervisor', 'admin']);
+
+test('وجهة زيارة /login بجلسة قائمة هي نفسها وجهة إرسال النموذج لكل دور', function (string $role, string $destination): void {
+    $this->user->update(['role' => $role]);
+
+    attemptLogin('0512345678', 'S3cure-pass')->assertRedirect(url($destination));
+
+    $this->get('/login')->assertRedirect(url($destination));
+})->with([
+    'مبادر' => ['user', '/dashboard'],
+    'مشرف' => ['supervisor', '/admin'],
+    'مدير' => ['admin', '/admin'],
+]);
+
 test('كوكيز الجلسة HttpOnly وSecure وSameSite افتراضيًا', function (): void {
     expect(config('session.http_only'))->toBeTrue()
         ->and(config('session.secure'))->toBeTrue()

@@ -8,6 +8,7 @@ use App\UserRole;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
+use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -41,6 +42,17 @@ class User extends Authenticatable implements FilamentUser, HasName
     public function hasPanelRole(): bool
     {
         return in_array($this->role, [UserRole::Supervisor, UserRole::Admin], true);
+    }
+
+    /**
+     * وجهة المستخدم بعد الدخول أو عند زيارة صفحة الدخول بجلسة قائمة:
+     * المشرف والمدير إلى /admin، والمبادر إلى /dashboard.
+     */
+    public function homeUrl(): string
+    {
+        return $this->hasPanelRole()
+            ? Dashboard::getUrl(panel: 'admin')
+            : route('dashboard');
     }
 
     public function getFilamentName(): string

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Livewire\Auth;
 
 use App\Actions\Auth\LoginUser;
-use Filament\Pages\Dashboard;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -43,12 +42,12 @@ class Login extends Component
         Session::regenerate();
 
         if ($user->hasPanelRole()) {
-            $this->redirect(Dashboard::getUrl(panel: 'admin'));
+            $this->redirect($user->homeUrl());
 
             return;
         }
 
-        $this->redirectIntended(route('dashboard'));
+        $this->redirectIntended($user->homeUrl());
     }
 
     public function render(): View
