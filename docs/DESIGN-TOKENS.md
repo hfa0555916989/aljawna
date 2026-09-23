@@ -24,7 +24,9 @@
 | خلفية الهيرو | `#0D3B36` مع نمط نجمة ثمانية شفاف |
 
 ## الألوان (داكن)
-`--bg #0B1A18` · `--surface #122624` · `--ink #E7F0EC` · `--muted #9BB1AB` · `--line #27413C` · `--pri #3FA593` · `--pri-ink #062320` · `--brass #D6AC54` · `--brass-soft #3A3117`.
+`--bg #0B1A18` · `--surface #122624` · `--ink #E7F0EC` · `--muted #9BB1AB` · `--line #27413C` · `--pri #3FA593` · `--pri-ink #062320` · `--brass #D6AC54` · `--brass-soft #3A3117` · `--bad #E07A6B` · `--good #5CC08F`.
+
+> `--bad` و`--good` في الوضع الداكن أفتح من الفاتح لتحقيق تباين AA على `--surface` و`--bg` (معتمد في T02).
 
 ## الأشكال
 - بطاقات: نصف قطر 14px وحد 1px بلون `--line` بلا ظل.
@@ -45,14 +47,17 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-pri: var(--pri);
+  --color-pri-ink: var(--pri-ink);
   --color-brass: var(--brass);
+  --color-bad: var(--bad);
+  --color-good: var(--good);
 }
 
 :root { --bg:#F2F5F1; --surface:#fff; --ink:#10302C; --muted:#586C67; --line:#D3DED8;
-        --pri:#0F4C45; --brass:#B58A2A; }
+        --pri:#0F4C45; --pri-ink:#fff; --brass:#B58A2A; --bad:#A33A2B; --good:#2C7A54; }
 @media (prefers-color-scheme: dark) {
   :root { --bg:#0B1A18; --surface:#122624; --ink:#E7F0EC; --muted:#9BB1AB; --line:#27413C;
-          --pri:#3FA593; --brass:#D6AC54; }
+          --pri:#3FA593; --pri-ink:#062320; --brass:#D6AC54; --bad:#E07A6B; --good:#5CC08F; }
 }
 ```
 > عند تفعيل وحدة الهوية (T16) تُستبدل `--pri` و`--brass` من `site_branding` عبر متغيرات CSS تُحقن في الصفحة، بعد فحص التباين.
