@@ -8,6 +8,9 @@ parameters:
     # المستوى 8 على الأقل (.cursor/rules/10-laravel-php.mdc)
     level: 8
 
+    # يقرأ Larastan جسم casts() بدل نوع PHPDoc العام، فتُعرف أنواع الـ enum casts (مثل User::$role).
+    parseModelCastsMethod: true
+
     tmpDir: storage/framework/phpstan
 
 #    ignoreErrors:
