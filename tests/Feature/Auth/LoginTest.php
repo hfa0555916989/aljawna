@@ -57,6 +57,24 @@ test('الدخول الناجح يوجّه إلى اللوحة ويحدّث بي
         ->and($attempt->succeeded)->toBeTrue();
 });
 
+test('المشرف والمدير يُحوَّلان من /login مباشرة إلى /admin', function (string $role): void {
+    $this->user->update(['role' => $role]);
+
+    attemptLogin('0512345678', 'S3cure-pass')
+        ->assertHasNoErrors()
+        ->assertRedirect(url('/admin'));
+
+    expect(Auth::id())->toBe($this->user->id);
+})->with(['supervisor', 'admin']);
+
+test('المشرف يُحوَّل إلى /admin حتى لو سبق أن طلب صفحة أخرى', function (): void {
+    $this->user->update(['role' => 'supervisor']);
+    $this->get('/dashboard')->assertRedirect(route('login'));
+    expect(session('url.intended'))->toBe(url('/dashboard'));
+
+    attemptLogin('0512345678', 'S3cure-pass')->assertRedirect(url('/admin'));
+});
+
 test('الدخول يقبل الجوال بالأرقام العربية', function (): void {
     attemptLogin('٠٥١٢٣٤٥٦٧٨', 'S3cure-pass')->assertHasNoErrors();
 

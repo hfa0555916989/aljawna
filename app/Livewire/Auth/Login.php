@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Auth;
 
 use App\Actions\Auth\LoginUser;
+use Filament\Pages\Dashboard;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -14,6 +15,7 @@ use Livewire\Component;
 
 /**
  * صفحة دخول المبادر /login بالجوال وكلمة المرور (docs/SPEC.md §3, FR-5).
+ * المشرف والمدير يُحوَّلان مباشرة إلى لوحة الإدارة /admin.
  */
 #[Title('تسجيل الدخول')]
 class Login extends Component
@@ -39,6 +41,12 @@ class Login extends Component
 
         Auth::login($user);
         Session::regenerate();
+
+        if ($user->hasPanelRole()) {
+            $this->redirect(Dashboard::getUrl(panel: 'admin'));
+
+            return;
+        }
 
         $this->redirectIntended(route('dashboard'));
     }
