@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
  * كتابة إجراء حساس في سجل التدقيق (docs/SPEC.md §12.7, FR-23).
  *
  * لا تضع في meta أرقام جوال أو آيبان أو محتوى إيصالات (.cursor/rules/30-security-privacy).
+ * الاستثناء الوحيد: تعديل الحساب البنكي لمستفيد يُسجَّل بقيمته القديمة والجديدة
+ * لأن المواصفة تشترطه (FR-33, §12.10)، عبر UpdateBeneficiary فقط.
  */
 class Audit
 {
