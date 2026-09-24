@@ -9,6 +9,7 @@ use App\PermissionKey;
 use App\Policies\DeniesAbilitiesToEveryone;
 use App\Policies\ReservesAbilitiesToPolicy;
 use App\UserRole;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -31,6 +32,9 @@ class AppServiceProvider extends ServiceProvider
         // يسمح باستخدام <x-layouts.app> في الصفحات العادية، بجانب استخدام
         // Livewire الخاص بالمكوّنات الكاملة عبر مساحة الاسم layouts:: (نفس الملف).
         Blade::anonymousComponentPath(resource_path('views/layouts'), 'layouts');
+
+        // الوقت النسبي (diffForHumans) بالعربية في قوائم "أحدث المبادرات" (docs/SPEC.md §7).
+        Carbon::setLocale(app()->getLocale());
 
         $this->registerPermissionGate();
     }

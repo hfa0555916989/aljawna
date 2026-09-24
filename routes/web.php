@@ -9,6 +9,7 @@ use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
 use App\Livewire\Beneficiaries\Index as BeneficiaryIndex;
 use App\Livewire\Beneficiaries\Show as BeneficiaryShow;
+use App\Livewire\Dashboard;
 use App\Livewire\Home;
 use App\Livewire\Transfers\Create as TransferCreate;
 use App\Livewire\Transfers\Index as TransferIndex;
@@ -27,7 +28,7 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::middleware('auth')->group(function (): void {
-    Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::livewire('/dashboard', Dashboard::class)->name('dashboard');
     Route::post('/logout', LogoutController::class)->name('logout');
 
     Route::livewire('/transfers', TransferCreate::class)->name('transfers.create');

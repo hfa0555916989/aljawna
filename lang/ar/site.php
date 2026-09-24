@@ -35,6 +35,8 @@ return [
         ],
         'latest_heading' => 'أحدث المبادرات',
         'latest_empty' => 'لا توجد حوالات بعد.',
+        'latest_transferred' => 'حوّل',
+        'latest_supporting' => 'لدعم',
     ],
 
     'beneficiaries' => [
