@@ -11,6 +11,7 @@ use App\Livewire\Beneficiaries\Index as BeneficiaryIndex;
 use App\Livewire\Beneficiaries\Show as BeneficiaryShow;
 use App\Livewire\Dashboard;
 use App\Livewire\Home;
+use App\Livewire\JoinSupervisor;
 use App\Livewire\Transfers\Create as TransferCreate;
 use App\Livewire\Transfers\Index as TransferIndex;
 use App\PermissionKey;
@@ -21,6 +22,10 @@ Route::livewire('/beneficiaries', BeneficiaryIndex::class)->name('beneficiaries.
 Route::livewire('/beneficiaries/{beneficiary}', BeneficiaryShow::class)
     ->whereNumber('beneficiary')
     ->name('beneficiaries.show');
+
+Route::livewire('/join/{token}', JoinSupervisor::class)
+    ->where('token', '[A-Za-z0-9\-_]+')
+    ->name('supervisors.join');
 
 Route::middleware('guest')->group(function (): void {
     Route::livewire('/register', Register::class)->name('register');
