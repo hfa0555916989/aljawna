@@ -188,6 +188,11 @@ return [
         'phone_confirmation' => 'تأكيد رقم الجوال',
         'password' => 'كلمة المرور',
         'password_confirmation' => 'تأكيد كلمة المرور',
+        'beneficiary_id' => 'المستفيد',
+        'amount' => 'المبلغ',
+        'transferred_on' => 'تاريخ الحوالة',
+        'bank_reference' => 'رقم العملية',
+        'receipt' => 'الإيصال',
     ],
 
 ];
