@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -61,6 +62,42 @@ class Transfer extends Model
     public function isOwnedBy(User $user): bool
     {
         return $this->user_id === $user->id;
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function assigner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    /**
+     * @return HasMany<TransferComment, $this>
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(TransferComment::class);
+    }
+
+    /**
+     * هل أُسندت للمراجعة النهائية بعد التعليق (يُستدل عليه من سجل التدقيق، FR-46).
+     */
+    public function wasFinalAssigned(): bool
+    {
+        return AuditLog::query()
+            ->where('action', 'transfer.final_assigned')
+            ->where('subject_type', $this->getMorphClass())
+            ->where('subject_id', $this->getKey())
+            ->exists();
     }
 
     /**

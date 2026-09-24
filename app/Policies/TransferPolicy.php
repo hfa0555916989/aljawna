@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\Transfer;
 use App\Models\User;
 use App\PermissionKey;
+use App\TransferReviewState;
 use App\UserRole;
 
 /**
@@ -26,7 +27,79 @@ class TransferPolicy implements DeniesAbilitiesToEveryone, ReservesAbilitiesToPo
 
     public function abilitiesReservedToPolicy(): array
     {
-        return ['create'];
+        return ['create', 'match', 'comment', 'assign', 'finalReview'];
+    }
+
+    /**
+     * عرض قائمة الحوالات في اللوحة (transfers.view). المدير يمرّ من Gate::before.
+     */
+    public function viewAny(User $user): bool
+    {
+        return $this->holds($user, PermissionKey::TransfersView);
+    }
+
+    public function view(User $user, Transfer $transfer): bool
+    {
+        return $this->viewAny($user);
+    }
+
+    /**
+     * مطابقة اختيارية. المسند إليه يعلّق فقط ولا يطابق (FR-45).
+     */
+    public function match(User $user, Transfer $transfer): bool
+    {
+        if ($transfer->review_state === TransferReviewState::FinalReviewed) {
+            return false;
+        }
+
+        if ($this->isAssignee($user, $transfer)) {
+            return false;
+        }
+
+        return $this->holds($user, PermissionKey::TransfersReview);
+    }
+
+    /**
+     * إسناد المراجعة، وبعد التعليق إسناد المراجعة النهائية إلى المشرف نفسه (FR-44, FR-46).
+     */
+    public function assign(User $user, Transfer $transfer, User $assignee): bool
+    {
+        if ($transfer->review_state === TransferReviewState::FinalReviewed || $transfer->wasFinalAssigned()) {
+            return false;
+        }
+
+        if (! $this->holds($user, PermissionKey::TransfersAssign) || ! $this->isEligibleReviewer($assignee)) {
+            return false;
+        }
+
+        if ($transfer->comments()->exists()) {
+            return $user->id === $transfer->assigned_by && $assignee->id === $transfer->assigned_to;
+        }
+
+        return true;
+    }
+
+    /**
+     * تعليق المسند إليه على الحوالة المتكررة فقط (FR-45).
+     */
+    public function comment(User $user, Transfer $transfer): bool
+    {
+        return $this->isAssignee($user, $transfer)
+            && $transfer->is_repeated
+            && ! $transfer->wasFinalAssigned()
+            && $transfer->review_state !== TransferReviewState::FinalReviewed
+            && $this->holds($user, PermissionKey::TransfersReview);
+    }
+
+    /**
+     * المراجعة النهائية بعد إسنادها إلى المشرف نفسه (FR-47).
+     */
+    public function finalReview(User $user, Transfer $transfer): bool
+    {
+        return $this->isAssignee($user, $transfer)
+            && $transfer->wasFinalAssigned()
+            && $transfer->review_state !== TransferReviewState::FinalReviewed
+            && $this->holds($user, PermissionKey::TransfersReview);
     }
 
     public function create(User $user): bool
@@ -67,5 +140,34 @@ class TransferPolicy implements DeniesAbilitiesToEveryone, ReservesAbilitiesToPo
     public function restoreAny(User $user): bool
     {
         return false;
+    }
+
+    /**
+     * مشرف فعّال مُنح transfers.review مباشرة. المشرفون يُنشَؤون من المدير (T04)، ولا عمود دعوة بعد.
+     */
+    private function isEligibleReviewer(User $user): bool
+    {
+        return $user->is_active
+            && $user->role === UserRole::Supervisor
+            && $user->hasGrantedPermission(PermissionKey::TransfersReview->value);
+    }
+
+    private function isAssignee(User $user, Transfer $transfer): bool
+    {
+        return $user->id === $transfer->assigned_to;
+    }
+
+    private function holds(User $user, PermissionKey $permission): bool
+    {
+        if (! $user->is_active) {
+            return false;
+        }
+
+        if ($user->role === UserRole::Admin) {
+            return true;
+        }
+
+        return $user->role === UserRole::Supervisor
+            && $user->hasGrantedPermission($permission->value);
     }
 }
