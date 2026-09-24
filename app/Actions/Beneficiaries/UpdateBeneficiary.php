@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * تعديل بيانات مستفيد (docs/SPEC.md FR-33, §12.10). تغيير أي حقل بنكي لا يتم
- * دون تأكيد صريح، ويُسجَّل في audit_logs بمن غيّر والقيمة القديمة والجديدة.
+ * دون تأكيد صريح، ويُسجَّل في audit_logs بمن غيّر والقيمة القديمة والجديدة،
+ * ويُلغي اعتماد المستفيد فيختفي من القوائم العامة حتى يُعتمد من جديد.
  */
 class UpdateBeneficiary
 {
@@ -37,10 +38,21 @@ class UpdateBeneficiary
         }
 
         DB::transaction(function () use ($actor, $beneficiary, $data, $changes): void {
-            $beneficiary->fill($data)->save();
+            $beneficiary->fill($data);
+
+            $revokesApproval = $changes !== [] && $beneficiary->isApproved();
+
+            if ($revokesApproval) {
+                $beneficiary->forceFill(['approved_by' => null, 'approved_at' => null]);
+            }
+
+            $beneficiary->save();
 
             if ($changes !== []) {
-                Audit::record(self::AUDIT_ACTION, $beneficiary, ['changes' => $changes], $actor);
+                Audit::record(self::AUDIT_ACTION, $beneficiary, [
+                    'changes' => $changes,
+                    'approval_revoked' => $revokesApproval,
+                ], $actor);
             }
         });
 
