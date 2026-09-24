@@ -6,14 +6,19 @@ namespace App\Actions\Beneficiaries;
 
 use App\Models\Beneficiary;
 use App\Models\User;
+use App\Services\Audit;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
  * اعتماد المستفيد بعد مراجعة بياناته، فيظهر للعامة (docs/SPEC.md FR-29، تدفق تسجيل مستفيد).
+ * يُسجَّل في audit_logs بمن اعتمد.
  */
 class ApproveBeneficiary
 {
+    public const AUDIT_ACTION = 'beneficiary.approved';
+
     /**
      * @throws AuthorizationException
      */
@@ -25,10 +30,14 @@ class ApproveBeneficiary
             return $beneficiary;
         }
 
-        $beneficiary->forceFill([
-            'approved_by' => $actor->getKey(),
-            'approved_at' => now(),
-        ])->save();
+        DB::transaction(function () use ($actor, $beneficiary): void {
+            $beneficiary->forceFill([
+                'approved_by' => $actor->getKey(),
+                'approved_at' => now(),
+            ])->save();
+
+            Audit::record(self::AUDIT_ACTION, $beneficiary, [], $actor);
+        });
 
         return $beneficiary;
     }
