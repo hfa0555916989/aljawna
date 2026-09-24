@@ -32,7 +32,7 @@ class Show extends Component
     #[Computed]
     public function beneficiary(): Beneficiary
     {
-        return Beneficiary::query()->findOrFail($this->beneficiaryId);
+        return Beneficiary::query()->withSum('transfers', 'amount')->findOrFail($this->beneficiaryId);
     }
 
     public function render(): View

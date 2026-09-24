@@ -13,5 +13,16 @@
         </div>
 
         <p class="mt-2 break-words text-muted">مرحبًا، {{ auth()->user()?->full_name }}</p>
+
+        @can('create', \App\Models\Transfer::class)
+            <div class="mt-6 flex flex-wrap gap-3">
+                <a href="{{ route('transfers.create') }}" class="inline-flex min-h-11 items-center rounded-[10px] bg-pri px-4 text-sm font-semibold text-pri-ink hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri">
+                    {{ __('transfers.dashboard.upload') }}
+                </a>
+                <a href="{{ route('transfers.index') }}" class="inline-flex min-h-11 items-center rounded-[10px] border border-pri px-4 text-sm font-semibold text-pri hover:bg-brass-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri">
+                    {{ __('transfers.dashboard.mine') }}
+                </a>
+            </div>
+        @endcan
     </div>
 </x-layouts::app>

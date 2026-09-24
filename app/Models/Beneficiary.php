@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -109,6 +110,29 @@ class Beneficiary extends Model
     protected function accountNumber(): Attribute
     {
         return Attribute::make(set: fn (?string $value): string => BankAccountNumber::normalize($value));
+    }
+
+    /**
+     * مجموع حوالاته. كل حوالة تُحتسب فور رفع إيصالها (FR-14)، فلا تصفية بحالة مراجعة.
+     * يستخدم transfers_sum_amount إن حُمِّل مسبقًا عبر withSum() لتجنّب N+1.
+     *
+     * @return numeric-string
+     */
+    public function collectedAmount(): string
+    {
+        $sum = array_key_exists('transfers_sum_amount', $this->attributes)
+            ? $this->attributes['transfers_sum_amount']
+            : $this->transfers()->sum('amount');
+
+        return bcadd(is_numeric($sum) ? (string) $sum : '0', '0', 2);
+    }
+
+    /**
+     * @return HasMany<Transfer, $this>
+     */
+    public function transfers(): HasMany
+    {
+        return $this->hasMany(Transfer::class);
     }
 
     /**

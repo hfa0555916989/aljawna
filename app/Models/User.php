@@ -14,6 +14,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
@@ -79,6 +80,16 @@ class User extends Authenticatable implements FilamentUser, HasName
         } catch (PermissionDoesNotExist) {
             return false;
         }
+    }
+
+    /**
+     * الحوالات التي بادر بها (FR-16).
+     *
+     * @return HasMany<Transfer, $this>
+     */
+    public function transfers(): HasMany
+    {
+        return $this->hasMany(Transfer::class);
     }
 
     public function isActiveAdmin(): bool

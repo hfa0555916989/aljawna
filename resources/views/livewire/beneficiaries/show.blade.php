@@ -33,11 +33,13 @@
 
             <p class="mt-5 border-t border-line pt-4 text-sm text-ink">
                 {{ __('site.show.upload_hint') }}
-                @auth
-                    <a href="{{ route('dashboard') }}" class="inline-flex min-h-11 items-center font-semibold text-pri underline-offset-4 hover:underline">{{ __('site.show.dashboard') }}</a>
-                @else
+                @guest
                     <a href="{{ route('login') }}" class="inline-flex min-h-11 items-center font-semibold text-pri underline-offset-4 hover:underline">{{ __('site.show.login') }}</a>
-                @endauth
+                @else
+                    @can('create', \App\Models\Transfer::class)
+                        <a href="{{ route('transfers.create', ['beneficiary' => $beneficiary->id]) }}" class="inline-flex min-h-11 items-center font-semibold text-pri underline-offset-4 hover:underline">{{ __('site.show.upload') }}</a>
+                    @endcan
+                @endguest
             </p>
         </section>
     @else
