@@ -13,6 +13,7 @@ use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 
 /*
@@ -83,6 +84,26 @@ test('إجراءات المستفيدين ترفض من لا يملك الصلا
     'الإغلاق' => fn (User $actor, Beneficiary $beneficiary) => app(ChangeBeneficiaryStatus::class)
         ->handle($actor, $beneficiary, BeneficiaryStatus::Closed),
 ]);
+
+test('حذف المستفيد ممنوع على المدير نفسه إن حاوله مباشرة', function (string $ability): void {
+    $admin = User::factory()->admin()->create();
+    $beneficiary = Beneficiary::factory()->create();
+    $target = str_ends_with($ability, 'Any') ? Beneficiary::class : $beneficiary;
+
+    expect($admin->can('beneficiaries.manage'))->toBeTrue()
+        ->and($admin->can($ability, $target))->toBeFalse()
+        ->and(fn () => Gate::forUser($admin)->authorize($ability, $target))->toThrow(AuthorizationException::class);
+
+    expect($beneficiary->fresh())->not->toBeNull();
+})->with(['delete', 'deleteAny', 'forceDelete', 'forceDeleteAny', 'restore', 'restoreAny']);
+
+test('منع الحذف لا يمسّ منح المدير الضمني لبقية الإجراءات', function (): void {
+    $admin = User::factory()->admin()->create();
+    $beneficiary = Beneficiary::factory()->create();
+
+    expect($admin->can('update', $beneficiary))->toBeTrue()
+        ->and($admin->can('create', Beneficiary::class))->toBeTrue();
+});
 
 test('سحب beneficiaries.manage يمنع الحفظ من صفحة تعديل مفتوحة', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['beneficiaries.manage'])->create();

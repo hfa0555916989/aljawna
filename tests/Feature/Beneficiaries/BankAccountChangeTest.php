@@ -85,8 +85,86 @@ test('تأكيد تعديل الحقل البنكي يحفظه ويسجّل من
         ->and($audit->actor_id)->toBe($this->supervisor->id)
         ->and($audit->subject_type)->toBe($this->beneficiary->getMorphClass())
         ->and($audit->subject_id)->toBe($this->beneficiary->id)
-        ->and($audit->meta)->toBe(['changes' => [$field => ['old' => $oldValue, 'new' => $newValue]]]);
+        ->and($audit->meta)->toBe([
+            'changes' => [$field => ['old' => $oldValue, 'new' => $newValue]],
+            'approval_revoked' => true,
+        ]);
 })->with('bank field changes');
+
+test('تعديل أي حقل بنكي يلغي الاعتماد فيختفي المستفيد من القوائم العامة', function (string $field, string $newValue): void {
+    expect(Beneficiary::public()->whereKey($this->beneficiary->id)->exists())->toBeTrue();
+
+    editBeneficiaryPage($this->beneficiary)
+        ->fillForm([$field => $newValue])
+        ->call('save')
+        ->callMountedAction()
+        ->assertHasNoFormErrors()
+        ->assertActionVisible('approve');
+
+    $this->beneficiary->refresh();
+
+    expect($this->beneficiary->isApproved())->toBeFalse()
+        ->and($this->beneficiary->approved_by)->toBeNull()
+        ->and(Beneficiary::public()->whereKey($this->beneficiary->id)->exists())->toBeFalse()
+        ->and(Beneficiary::available()->whereKey($this->beneficiary->id)->exists())->toBeFalse();
+})->with('bank field changes');
+
+test('تعديل حقل غير بنكي يبقي الاعتماد', function (): void {
+    editBeneficiaryPage($this->beneficiary)
+        ->fillForm(['display_name' => 'سالم ماجد تركي الجديد', 'target_amount' => '70000'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($this->beneficiary->refresh()->isApproved())->toBeTrue();
+});
+
+test('تعديل مستفيد مضت مواعيده لا يُرفض بسبب الماضي، فالمنع عند التسجيل فقط', function (): void {
+    $this->beneficiary->forceFill([
+        'target_deadline' => today()->subMonths(3),
+        'recommended_deadline' => today()->subMonths(2),
+        'wedding_date' => today()->subMonth(),
+    ])->save();
+
+    editBeneficiaryPage($this->beneficiary)
+        ->fillForm(['target_amount' => '70000'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($this->beneficiary->refresh()->target_amount)->toBe('70000.00');
+});
+
+test('لا يجوز تعديل الآيبان إلى آيبان مسجّل لمستفيد آخر', function (): void {
+    $other = Beneficiary::factory()->create();
+    $oldIban = $this->beneficiary->iban;
+
+    editBeneficiaryPage($this->beneficiary)
+        ->fillForm(['iban' => $other->iban])
+        ->call('save')
+        ->assertHasFormErrors(['iban'])
+        ->assertActionNotMounted('confirmBankChange');
+
+    expect($this->beneficiary->refresh()->iban)->toBe($oldIban);
+});
+
+test('تسلسل المواعيد يُفرض عند التعديل أيضًا', function (): void {
+    editBeneficiaryPage($this->beneficiary)
+        ->fillForm(['wedding_date' => $this->beneficiary->recommended_deadline->copy()->subDay()->toDateString()])
+        ->call('save')
+        ->assertHasFormErrors(['wedding_date']);
+});
+
+test('تعديل حساب مستفيد غير معتمد يسجّل أنه لم يُلغَ اعتماد', function (): void {
+    $pending = Beneficiary::factory()->create();
+
+    app(UpdateBeneficiary::class)->handle(
+        $this->supervisor,
+        $pending,
+        ['account_number' => '999999999999999'],
+        bankChangeConfirmed: true,
+    );
+
+    expect(AuditLog::query()->sole()->meta['approval_revoked'])->toBeFalse();
+});
 
 test('إلغاء نافذة التأكيد لا يحفظ الحساب', function (): void {
     $oldIban = $this->beneficiary->iban;
@@ -120,7 +198,7 @@ test('تغيير عدة حقول بنكية معًا يُسجَّل في سطر 
         ->call('save')
         ->callMountedAction();
 
-    expect(AuditLog::query()->sole()->meta['changes'])
+    expect(AuditLog::query()->where('action', UpdateBeneficiary::AUDIT_ACTION)->sole()->meta['changes'])
         ->toHaveKeys(['iban', 'bank_name'])
         ->iban->new->toBe($newIban)
         ->bank_name->old->toBe('مصرف الراجحي');

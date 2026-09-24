@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Actions\Beneficiaries\CreateBeneficiary as CreateBeneficiaryAction;
 use App\Filament\Resources\Beneficiaries\Pages\CreateBeneficiary;
+use App\Models\AuditLog;
 use App\Models\Beneficiary;
 use App\Models\User;
 use App\Support\SaudiIban;
 use Filament\Facades\Filament;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Livewire\Livewire;
 
 /*
@@ -49,10 +52,94 @@ test('التسجيل يحفظ المستفيد متاحًا وغير معتمد 
     expect($beneficiary->display_name)->toBe('سالم ماجد تركي العجاوني')
         ->and($beneficiary->status->value)->toBe('active')
         ->and($beneficiary->target_amount)->toBe('45000.00')
-        ->and($beneficiary->wedding_date->toDateString())->toBe('2027-01-15')
+        ->and($beneficiary->wedding_date->toDateString())->toBe(beneficiaryFormData()['wedding_date'])
         ->and($beneficiary->created_by)->toBe($this->admin->id)
         ->and($beneficiary->isApproved())->toBeFalse()
         ->and(Beneficiary::public()->exists())->toBeFalse();
+});
+
+test('التسجيل يُكتب في سجل التدقيق باسم من سجّل ودون بيانات الحساب', function (): void {
+    Livewire::test(CreateBeneficiary::class)
+        ->fillForm(beneficiaryFormData())
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $beneficiary = Beneficiary::query()->sole();
+    $audit = AuditLog::query()->sole();
+
+    expect($audit->action)->toBe(CreateBeneficiaryAction::AUDIT_ACTION)
+        ->and($audit->actor_id)->toBe($this->admin->id)
+        ->and($audit->subject_type)->toBe($beneficiary->getMorphClass())
+        ->and($audit->subject_id)->toBe($beneficiary->id)
+        ->and($audit->meta)->toBe([]);
+});
+
+test('آيبان مسجّل لمستفيد آخر يُرفض ولو كُتب بصيغة مختلفة', function (): void {
+    $iban = SaudiIban::fromParts('80', '000000123456789012');
+    Beneficiary::factory()->create(['iban' => $iban]);
+
+    Livewire::test(CreateBeneficiary::class)
+        ->fillForm(beneficiaryFormData(['iban' => strtolower(implode(' ', str_split($iban, 4)))]))
+        ->call('create')
+        ->assertHasFormErrors(['iban'])
+        ->assertSee('رقم الآيبان هذا مسجّل لمستفيد آخر.');
+
+    expect(Beneficiary::query()->count())->toBe(1);
+});
+
+test('قاعدة البيانات تمنع تكرار الآيبان حتى خارج النموذج', function (): void {
+    $iban = SaudiIban::fromParts('80', '000000123456789012');
+    Beneficiary::factory()->create(['iban' => $iban]);
+
+    expect(fn () => Beneficiary::factory()->create(['iban' => $iban]))
+        ->toThrow(UniqueConstraintViolationException::class);
+});
+
+test('المواعيد يجب أن تتسلسل: المستهدف ثم المستحسن ثم الزواج', function (int $targetInDays, int $recommendedInDays, int $weddingInDays, string $field, string $message): void {
+    Livewire::test(CreateBeneficiary::class)
+        ->fillForm(beneficiaryFormData([
+            'target_deadline' => today()->addDays($targetInDays)->toDateString(),
+            'recommended_deadline' => today()->addDays($recommendedInDays)->toDateString(),
+            'wedding_date' => today()->addDays($weddingInDays)->toDateString(),
+        ]))
+        ->call('create')
+        ->assertHasFormErrors([$field])
+        ->assertSee($message);
+
+    expect(Beneficiary::query()->exists())->toBeFalse();
+})->with([
+    'المستحسن قبل المستهدف' => [90, 60, 120, 'recommended_deadline', 'الموعد المستحسن يجب أن يكون في يوم الموعد المستهدف أو بعده.'],
+    'الزواج قبل المستحسن' => [60, 120, 90, 'wedding_date', 'موعد الزواج يجب أن يكون في يوم الموعد المستحسن أو بعده.'],
+]);
+
+test('المواعيد الثلاثة في يوم واحد مقبولة', function (): void {
+    $sameDay = today()->addMonth()->toDateString();
+
+    Livewire::test(CreateBeneficiary::class)
+        ->fillForm(beneficiaryFormData([
+            'target_deadline' => $sameDay,
+            'recommended_deadline' => $sameDay,
+            'wedding_date' => $sameDay,
+        ]))
+        ->call('create')
+        ->assertHasNoFormErrors();
+});
+
+test('لا يُقبل أي موعد في الماضي عند التسجيل', function (string $field): void {
+    Livewire::test(CreateBeneficiary::class)
+        ->fillForm(beneficiaryFormData([$field => today()->subDay()->toDateString()]))
+        ->call('create')
+        ->assertHasFormErrors([$field])
+        ->assertSee('لا يجوز أن يكون هذا الموعد في الماضي.');
+
+    expect(Beneficiary::query()->exists())->toBeFalse();
+})->with(['target_deadline', 'recommended_deadline', 'wedding_date']);
+
+test('موعد اليوم ليس في الماضي', function (): void {
+    Livewire::test(CreateBeneficiary::class)
+        ->fillForm(beneficiaryFormData(['target_deadline' => today()->toDateString()]))
+        ->call('create')
+        ->assertHasNoFormErrors();
 });
 
 test('الآيبان ورقم الحساب يُطبَّعان عند الحفظ', function (): void {

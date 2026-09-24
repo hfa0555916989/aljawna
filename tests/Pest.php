@@ -70,9 +70,9 @@ function beneficiaryFormData(array $overrides = []): array
         'account_number' => '123456789012345',
         'iban' => SaudiIban::fromParts('80', '000000123456789012'),
         'target_amount' => '45000',
-        'target_deadline' => '2026-12-01',
-        'recommended_deadline' => '2026-11-01',
-        'wedding_date' => '2027-01-15',
+        'target_deadline' => today()->addMonths(2)->toDateString(),
+        'recommended_deadline' => today()->addMonths(3)->toDateString(),
+        'wedding_date' => today()->addMonths(4)->toDateString(),
         ...$overrides,
     ];
 }
