@@ -47,13 +47,23 @@ test('تبويب المتاحة الافتراضي يعرض المعتمدة ا�
         ->assertSee('href="'.route('beneficiaries.show', $this->available).'"', false);
 });
 
-test('تبويب المغلقة يعرض المعتمدة المغلقة فقط', function (): void {
+test('تبويب المغلقة يعرض كل المغلقة معتمدة أو لا، ولا يعرض المتاحة', function (): void {
     $this->get(route('beneficiaries.index', ['tab' => 'closed']))
         ->assertOk()
         ->assertSeeText($this->closed->display_name)
+        ->assertSeeText($this->pendingClosed->display_name)
         ->assertDontSeeText($this->available->display_name)
-        ->assertDontSeeText($this->pendingClosed->display_name)
-        ->assertDontSeeText($this->pending->display_name);
+        ->assertDontSeeText($this->pending->display_name)
+        ->assertDontSeeText($this->revoked->display_name);
+});
+
+test('المغلقة غير المعتمدة تظهر بلا رابط لصفحتها لأنها غير متاحة للعامة', function (): void {
+    $this->get(route('beneficiaries.index', ['tab' => 'closed']))
+        ->assertOk()
+        ->assertSee('href="'.route('beneficiaries.show', $this->closed).'"', false)
+        ->assertDontSee('href="'.route('beneficiaries.show', $this->pendingClosed).'"', false);
+
+    $this->get(route('beneficiaries.show', $this->pendingClosed))->assertNotFound();
 });
 
 test('التبديل بين التبويبين عبر Livewire يغيّر القائمة', function (): void {
@@ -61,8 +71,8 @@ test('التبديل بين التبويبين عبر Livewire يغيّر الق
         ->assertSeeText($this->available->display_name)
         ->set('tab', 'closed')
         ->assertSeeText($this->closed->display_name)
+        ->assertSeeText($this->pendingClosed->display_name)
         ->assertDontSeeText($this->available->display_name)
-        ->assertDontSeeText($this->pendingClosed->display_name)
         ->set('tab', 'available')
         ->assertSeeText($this->available->display_name)
         ->assertDontSeeText($this->closed->display_name);
@@ -76,10 +86,10 @@ test('قيمة تبويب غير معروفة تعود إلى المتاحة', f
         ->assertDontSeeText($this->closed->display_name);
 });
 
-test('عدد كل تبويب يطابق المعتمدة فقط', function (): void {
+test('عدد تبويب المتاحة للمعتمدة فقط، وعدد المغلقة لكل مغلقة', function (): void {
     Beneficiary::factory()->approved()->create();
 
-    expect(Livewire::test(Index::class)->instance()->counts())->toBe(['available' => 2, 'closed' => 1]);
+    expect(Livewire::test(Index::class)->instance()->counts())->toBe(['available' => 2, 'closed' => 2]);
 });
 
 test('القائمة لا تحتوي أي بيانات بنكية في HTML ولا في استجابات Livewire', function (string $tab): void {

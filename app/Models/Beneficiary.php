@@ -67,14 +67,14 @@ class Beneficiary extends Model
     }
 
     /**
-     * المعتمدة المغلقة: تُعرض للعامة بلا حساب بنكي.
+     * كل المغلقة معتمدة أو لا، ليتطابق عدّاد "المغلقة" وتبويبها دائمًا (قرار T06). تُعرض بلا حساب بنكي.
      *
      * @param  Builder<self>  $query
      */
     #[Scope]
     protected function closed(Builder $query): void
     {
-        $query->whereNotNull('approved_at')->where('status', BeneficiaryStatus::Closed);
+        $query->where('status', BeneficiaryStatus::Closed);
     }
 
     public function isApproved(): bool

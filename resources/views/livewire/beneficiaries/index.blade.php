@@ -35,7 +35,11 @@
                     <li wire:key="beneficiary-{{ $beneficiary->id }}" class="flex flex-col gap-4 rounded-[14px] border border-line bg-surface p-4 sm:p-5">
                         <div class="flex items-start justify-between gap-3">
                             <h2 class="min-w-0 break-words text-lg font-bold leading-7 text-ink">
-                                <a href="{{ route('beneficiaries.show', $beneficiary) }}" class="hover:text-pri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri">{{ $beneficiary->display_name }}</a>
+                                @if ($beneficiary->isApproved())
+                                    <a href="{{ route('beneficiaries.show', $beneficiary) }}" class="hover:text-pri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri">{{ $beneficiary->display_name }}</a>
+                                @else
+                                    {{ $beneficiary->display_name }}
+                                @endif
                             </h2>
                             <x-beneficiary.status :status="$beneficiary->status" />
                         </div>
@@ -50,12 +54,14 @@
                             <x-dual-date :label="__('beneficiaries.fields.recommended_deadline')" :date="$beneficiary->recommended_deadline" :countdown="$beneficiary->acceptsTransfers()" />
                         </dl>
 
-                        <a
-                            href="{{ route('beneficiaries.show', $beneficiary) }}"
-                            class="mt-auto inline-flex min-h-11 items-center justify-center rounded-[10px] border border-pri px-4 text-sm font-semibold text-pri hover:bg-brass-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri"
-                        >
-                            {{ $beneficiary->acceptsTransfers() ? __('site.beneficiaries.details') : __('site.beneficiaries.details_closed') }}
-                        </a>
+                        @if ($beneficiary->isApproved())
+                            <a
+                                href="{{ route('beneficiaries.show', $beneficiary) }}"
+                                class="mt-auto inline-flex min-h-11 items-center justify-center rounded-[10px] border border-pri px-4 text-sm font-semibold text-pri hover:bg-brass-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri"
+                            >
+                                {{ $beneficiary->acceptsTransfers() ? __('site.beneficiaries.details') : __('site.beneficiaries.details_closed') }}
+                            </a>
+                        @endif
                     </li>
                 @endforeach
             </ul>

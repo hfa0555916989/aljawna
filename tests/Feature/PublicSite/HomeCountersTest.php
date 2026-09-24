@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\BeneficiaryStatus;
+use App\Livewire\Beneficiaries\Index;
 use App\Livewire\Home;
 use App\Models\Beneficiary;
 use Livewire\Livewire;
@@ -13,7 +14,7 @@ use Livewire\Livewire;
 |--------------------------------------------------------------------------
 */
 
-test('العدّادان يحسبان المعتمدة فقط: المتاحة والمغلقة', function (): void {
+test('عدّاد المتاحة للمعتمدة المتاحة فقط، وعدّاد المغلقة لكل مغلقة معتمدة أو لا', function (): void {
     Beneficiary::factory()->approved()->count(3)->create();
     Beneficiary::factory()->approved()->closed()->count(2)->create();
     Beneficiary::factory()->create();
@@ -24,7 +25,25 @@ test('العدّادان يحسبان المعتمدة فقط: المتاحة و
     $this->get(route('home'))
         ->assertOk()
         ->assertSee('dir="ltr" data-counter="available">3</span>', false)
-        ->assertSee('dir="ltr" data-counter="closed">2</span>', false);
+        ->assertSee('dir="ltr" data-counter="closed">4</span>', false);
+});
+
+test('عدّاد المغلقة في الرئيسية يطابق دائمًا عدد تبويب المغلقة وبطاقاته', function (): void {
+    Beneficiary::factory()->approved()->closed()->count(2)->create();
+    Beneficiary::factory()->closed()->create();
+    Beneficiary::factory()->approvalRevoked()->closed()->create();
+    Beneficiary::factory()->approved()->create();
+    Beneficiary::factory()->create();
+
+    $homeCount = Livewire::test(Home::class)->instance()->closedCount();
+    $tab = Livewire::withQueryParams(['tab' => 'closed'])->test(Index::class);
+
+    expect($homeCount)->toBe(4)
+        ->and($tab->instance()->counts()['closed'])->toBe($homeCount)
+        ->and($tab->instance()->beneficiaries())->toHaveCount($homeCount);
+
+    $this->get(route('home'))->assertSee('data-counter="closed">4</span>', false);
+    $this->get(route('beneficiaries.index', ['tab' => 'closed']))->assertSee('<span dir="ltr" class="text-xs opacity-80">(4)</span>', false);
 });
 
 test('العدّادان صفر عند عدم وجود مبادرات معتمدة', function (): void {

@@ -26,8 +26,9 @@ test('النطاق available() يُخفي غير المعتمد والمغلق',
     expect(Beneficiary::available()->pluck('id')->all())->toBe([$this->approved->id]);
 });
 
-test('النطاق closed() يعرض المعتمد المغلق فقط', function (): void {
-    expect(Beneficiary::closed()->pluck('id')->all())->toBe([$this->approvedClosed->id]);
+test('النطاق closed() يشمل كل مغلق معتمدًا كان أو لا (قرار T06)', function (): void {
+    expect(Beneficiary::closed()->pluck('id')->sort()->values()->all())
+        ->toBe(collect([$this->pendingClosed->id, $this->approvedClosed->id])->sort()->values()->all());
 });
 
 test('استقبال الحوالات للمعتمد المتاح فقط', function (): void {
