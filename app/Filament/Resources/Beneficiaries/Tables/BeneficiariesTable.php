@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Beneficiaries\Tables;
 
 use App\BeneficiaryStatus;
+use App\Filament\Resources\Beneficiaries\BeneficiaryResource;
 use App\Models\Beneficiary;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
@@ -45,10 +46,8 @@ class BeneficiariesTable
                 TextColumn::make('approved_at')
                     ->label(__('beneficiaries.fields.approval'))
                     ->badge()
-                    ->state(fn (Beneficiary $record): string => $record->isApproved()
-                        ? __('beneficiaries.approval.approved')
-                        : __('beneficiaries.approval.pending'))
-                    ->color(fn (Beneficiary $record): string => $record->isApproved() ? 'success' : 'warning'),
+                    ->state(fn (Beneficiary $record): string => BeneficiaryResource::approvalLabel($record))
+                    ->color(fn (Beneficiary $record): string => BeneficiaryResource::approvalColor($record)),
             ])
             ->filters([
                 SelectFilter::make('status')

@@ -18,6 +18,7 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use Illuminate\Validation\ValidationException;
 
 /**
  * تعديل المستفيد. تغيير أي حقل بنكي يوقف الحفظ ويفتح نافذة تأكيد صريحة،
@@ -36,9 +37,7 @@ class EditBeneficiary extends EditRecord
 
     public function getSubheading(): string
     {
-        return $this->record->status->getLabel().' · '.($this->record->isApproved()
-            ? __('beneficiaries.approval.approved')
-            : __('beneficiaries.approval.pending'));
+        return $this->record->status->getLabel().' · '.BeneficiaryResource::approvalLabel($this->record);
     }
 
     /**
@@ -53,6 +52,8 @@ class EditBeneficiary extends EditRecord
             $this->mountAction('confirmBankChange');
 
             throw new Halt;
+        } catch (ValidationException $exception) {
+            throw BeneficiaryResource::formValidationException($exception);
         }
     }
 
@@ -77,7 +78,7 @@ class EditBeneficiary extends EditRecord
             Action::make('approve')
                 ->label(__('beneficiaries.actions.approve.label'))
                 ->color('success')
-                ->visible(fn (): bool => ! $this->record->isApproved())
+                ->visible(fn (): bool => ! $this->record->isApproved() && $this->actor()->can('approve', $this->record))
                 ->requiresConfirmation()
                 ->modalHeading(__('beneficiaries.actions.approve.heading'))
                 ->modalDescription(__('beneficiaries.actions.approve.description'))

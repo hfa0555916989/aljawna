@@ -31,6 +31,7 @@ return new class extends Migration
             $table->foreignId('created_by')->constrained('users')->restrictOnDelete();
             $table->foreignId('approved_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamp('approved_at')->nullable()->index();
+            $table->timestamp('approval_revoked_at')->nullable();
             $table->timestamps();
         });
     }

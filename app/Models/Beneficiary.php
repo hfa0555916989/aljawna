@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $recommended_deadline
  * @property Carbon $wedding_date
  * @property Carbon|null $approved_at
+ * @property Carbon|null $approval_revoked_at
  */
 #[Fillable([
     'display_name', 'account_holder', 'bank_name', 'account_number', 'iban',
@@ -68,6 +69,14 @@ class Beneficiary extends Model
     public function isApproved(): bool
     {
         return $this->approved_at !== null;
+    }
+
+    /**
+     * أُلغي اعتماده بسبب تعديل بنكي، فلا يعيد اعتماده إلا المدير (§12.5، قرار T05).
+     */
+    public function awaitsAdminReapproval(): bool
+    {
+        return ! $this->isApproved() && $this->approval_revoked_at !== null;
     }
 
     public function acceptsTransfers(): bool
@@ -121,6 +130,7 @@ class Beneficiary extends Model
             'wedding_date' => 'date',
             'status' => BeneficiaryStatus::class,
             'approved_at' => 'datetime',
+            'approval_revoked_at' => 'datetime',
         ];
     }
 }

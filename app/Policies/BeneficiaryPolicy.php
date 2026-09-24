@@ -40,6 +40,15 @@ class BeneficiaryPolicy implements DeniesAbilitiesToEveryone
         return $this->canManage($user);
     }
 
+    /**
+     * الاعتماد الأول لمن يملك beneficiaries.manage (§2). أما إعادة الاعتماد بعد تعديل بنكي
+     * فللمدير وحده، وهو يمرّ ضمنيًا عبر Gate::before (§12.5، قرار T05).
+     */
+    public function approve(User $user, Beneficiary $beneficiary): bool
+    {
+        return $this->canManage($user) && ! $beneficiary->awaitsAdminReapproval();
+    }
+
     public function delete(User $user, Beneficiary $beneficiary): bool
     {
         return false;

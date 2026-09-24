@@ -56,6 +56,18 @@ class BeneficiaryFactory extends Factory
     }
 
     /**
+     * حالة: أُلغي اعتماده بتعديل بنكي وينتظر إعادة اعتماد المدير.
+     */
+    public function approvalRevoked(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'approved_by' => null,
+            'approved_at' => null,
+            'approval_revoked_at' => now(),
+        ]);
+    }
+
+    /**
      * حالة: مغلق.
      */
     public function closed(): static
