@@ -11,25 +11,31 @@ use App\Services\Audit;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 /**
  * تعديل بيانات مستفيد (docs/SPEC.md FR-33, §12.10). تغيير أي حقل بنكي لا يتم
  * دون تأكيد صريح، ويُسجَّل في audit_logs بمن غيّر والقيمة القديمة والجديدة،
- * ويُلغي اعتماد المستفيد فيختفي من القوائم العامة حتى يُعتمد من جديد.
+ * ويُلغي اعتماد المستفيد فيختفي من القوائم العامة حتى يعيد المدير وحده اعتماده.
  */
 class UpdateBeneficiary
 {
     public const AUDIT_ACTION = 'beneficiary.bank_account_updated';
 
+    public function __construct(private readonly EnsureValidDeadlines $ensureValidDeadlines) {}
+
     /**
      * @param  array<string, mixed>  $data
      *
      * @throws AuthorizationException
+     * @throws ValidationException
      * @throws BankAccountChangeNotConfirmed
      */
     public function handle(User $actor, Beneficiary $beneficiary, array $data, bool $bankChangeConfirmed = false): Beneficiary
     {
         Gate::forUser($actor)->authorize('update', $beneficiary);
+
+        $this->ensureValidDeadlines->handle((clone $beneficiary)->fill($data), rejectPast: false);
 
         $changes = self::pendingBankChanges($beneficiary, $data);
 
@@ -43,7 +49,7 @@ class UpdateBeneficiary
             $revokesApproval = $changes !== [] && $beneficiary->isApproved();
 
             if ($revokesApproval) {
-                $beneficiary->forceFill(['approved_by' => null, 'approved_at' => null]);
+                $beneficiary->forceFill(['approved_by' => null, 'approved_at' => null, 'approval_revoked_at' => now()]);
             }
 
             $beneficiary->save();

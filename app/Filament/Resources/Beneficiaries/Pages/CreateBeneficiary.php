@@ -9,6 +9,7 @@ use App\Filament\Resources\Beneficiaries\BeneficiaryResource;
 use App\Models\User;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class CreateBeneficiary extends CreateRecord
 {
@@ -24,7 +25,11 @@ class CreateBeneficiary extends CreateRecord
         /** @var User $actor */
         $actor = auth()->user();
 
-        return app(CreateBeneficiaryAction::class)->handle($actor, $data);
+        try {
+            return app(CreateBeneficiaryAction::class)->handle($actor, $data);
+        } catch (ValidationException $exception) {
+            throw BeneficiaryResource::formValidationException($exception);
+        }
     }
 
     protected function getRedirectUrl(): string
