@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\StatsService;
 use App\TransferReviewState;
 use Database\Factories\TransferFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -60,6 +61,16 @@ class Transfer extends Model
     public function isOwnedBy(User $user): bool
     {
         return $this->user_id === $user->id;
+    }
+
+    /**
+     * يُبطل كاش مؤشرات المستفيد ومجموع المبادرة عند إضافة حوالة أو تعديلها (docs/SPEC.md §7).
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Transfer $transfer): void {
+            StatsService::forget($transfer->beneficiary_id);
+        });
     }
 
     /**

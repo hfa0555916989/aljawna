@@ -69,7 +69,24 @@
 
         <section aria-labelledby="latest-heading" class="rounded-[14px] border border-line bg-surface p-5 sm:p-6">
             <h2 id="latest-heading" class="text-xl font-bold text-ink">{{ __('site.home.latest_heading') }}</h2>
-            <p class="mt-3 text-muted">{{ __('site.home.latest_empty') }}</p>
+            @if ($this->recentTransfers->isEmpty())
+                <p class="mt-3 text-muted">{{ __('site.home.latest_empty') }}</p>
+            @else
+                <ul class="mt-4 flex flex-col gap-3">
+                    @foreach ($this->recentTransfers as $transfer)
+                        <li wire:key="recent-{{ $transfer->id }}" class="flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-3 text-sm last:border-b-0 last:pb-0">
+                            <span class="text-ink">
+                                <span class="font-semibold">{{ $transfer->user->firstName() }}</span>
+                                {{ __('site.home.latest_transferred') }}
+                                <span class="font-semibold" dir="ltr">{{ \App\Support\Money::format($transfer->amount) }}</span>
+                                {{ __('site.home.latest_supporting') }}
+                                <span class="font-semibold">{{ $transfer->beneficiary->display_name }}</span>
+                            </span>
+                            <span class="shrink-0 text-xs text-muted">{{ $transfer->created_at->diffForHumans() }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
         </section>
     </div>
 </div>
