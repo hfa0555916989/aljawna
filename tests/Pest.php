@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Models\Beneficiary;
 use App\Support\SaudiIban;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Features\SupportTesting\Testable;
 use Tests\TestCase;
 
 /*
@@ -75,4 +77,35 @@ function beneficiaryFormData(array $overrides = []): array
         'wedding_date' => today()->addMonths(4)->toDateString(),
         ...$overrides,
     ];
+}
+
+/**
+ * قيم الحساب البنكي لمستفيد بكل صيغ عرضها، لإثبات غيابها عن الصفحات العامة.
+ *
+ * @return list<string>
+ */
+function bankSecretsOf(Beneficiary $beneficiary): array
+{
+    return [
+        $beneficiary->iban,
+        SaudiIban::grouped($beneficiary->iban),
+        $beneficiary->account_number,
+        $beneficiary->account_holder,
+    ];
+}
+
+/**
+ * يثبت أن HTML المكوّن ولقطته وآثاره لا تحتوي أي قيمة من الحساب البنكي.
+ */
+function assertNoBankData(Testable $component, Beneficiary $beneficiary): void
+{
+    $payload = implode("\n", [
+        $component->html(),
+        json_encode($component->snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        json_encode($component->effects, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    ]);
+
+    foreach (bankSecretsOf($beneficiary) as $secret) {
+        expect($payload)->not->toContain($secret);
+    }
 }

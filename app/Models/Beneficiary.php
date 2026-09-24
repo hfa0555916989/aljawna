@@ -66,6 +66,17 @@ class Beneficiary extends Model
         $query->whereNotNull('approved_at')->where('status', BeneficiaryStatus::Active);
     }
 
+    /**
+     * المعتمدة المغلقة: تُعرض للعامة بلا حساب بنكي.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function closed(Builder $query): void
+    {
+        $query->whereNotNull('approved_at')->where('status', BeneficiaryStatus::Closed);
+    }
+
     public function isApproved(): bool
     {
         return $this->approved_at !== null;
