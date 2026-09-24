@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\Beneficiaries\ApproveBeneficiary;
 use App\Actions\Beneficiaries\UpdateBeneficiary;
 use App\Exceptions\BankAccountChangeNotConfirmed;
 use App\Filament\Resources\Beneficiaries\Pages\EditBeneficiary;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Support\SaudiIban;
 use Database\Seeders\PermissionSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Auth\Access\AuthorizationException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
@@ -98,16 +100,67 @@ test('تعديل أي حقل بنكي يلغي الاعتماد فيختفي ا�
         ->fillForm([$field => $newValue])
         ->call('save')
         ->callMountedAction()
-        ->assertHasNoFormErrors()
-        ->assertActionVisible('approve');
+        ->assertHasNoFormErrors();
 
     $this->beneficiary->refresh();
 
     expect($this->beneficiary->isApproved())->toBeFalse()
+        ->and($this->beneficiary->awaitsAdminReapproval())->toBeTrue()
         ->and($this->beneficiary->approved_by)->toBeNull()
         ->and(Beneficiary::public()->whereKey($this->beneficiary->id)->exists())->toBeFalse()
         ->and(Beneficiary::available()->whereKey($this->beneficiary->id)->exists())->toBeFalse();
 })->with('bank field changes');
+
+test('المشرف بصلاحية beneficiaries.manage يُرفض عند إعادة الاعتماد بعد تعديل بنكي', function (): void {
+    editBeneficiaryPage($this->beneficiary)
+        ->fillForm(['iban' => SaudiIban::fromParts('80', '000000222222222222')])
+        ->call('save')
+        ->callMountedAction();
+
+    editBeneficiaryPage($this->beneficiary->refresh())
+        ->assertActionHidden('approve')
+        ->assertSee('بانتظار إعادة اعتماد المدير بعد تعديل الحساب البنكي');
+
+    expect(fn () => app(ApproveBeneficiary::class)->handle($this->supervisor, $this->beneficiary))
+        ->toThrow(AuthorizationException::class)
+        ->and($this->beneficiary->refresh()->isApproved())->toBeFalse()
+        ->and(AuditLog::query()->where('action', ApproveBeneficiary::AUDIT_ACTION)->exists())->toBeFalse();
+});
+
+test('المدير يعيد الاعتماد بعد تعديل بنكي فيعود المستفيد للعامة', function (): void {
+    editBeneficiaryPage($this->beneficiary)
+        ->fillForm(['iban' => SaudiIban::fromParts('80', '000000222222222222')])
+        ->call('save')
+        ->callMountedAction();
+
+    $admin = User::factory()->admin()->create();
+    $this->actingAs($admin);
+
+    editBeneficiaryPage($this->beneficiary->refresh())
+        ->assertActionVisible('approve')
+        ->callAction('approve')
+        ->assertNotified('اعتُمدت المبادرة.');
+
+    $this->beneficiary->refresh();
+    $audit = AuditLog::query()->where('action', ApproveBeneficiary::AUDIT_ACTION)->sole();
+
+    expect($this->beneficiary->isApproved())->toBeTrue()
+        ->and($this->beneficiary->approved_by)->toBe($admin->id)
+        ->and($this->beneficiary->awaitsAdminReapproval())->toBeFalse()
+        ->and(Beneficiary::public()->whereKey($this->beneficiary->id)->exists())->toBeTrue()
+        ->and($audit->actor_id)->toBe($admin->id)
+        ->and($audit->meta)->toBe(['reapproval' => true]);
+});
+
+test('تعديل حساب مستفيد جديد لم يُعتمد بعد لا يحصر اعتماده الأول في المدير', function (): void {
+    $pending = Beneficiary::factory()->create();
+
+    app(UpdateBeneficiary::class)->handle($this->supervisor, $pending, ['iban' => SaudiIban::fromParts('80', '000000444444444444')], bankChangeConfirmed: true);
+    app(ApproveBeneficiary::class)->handle($this->supervisor, $pending->refresh());
+
+    expect($pending->refresh()->isApproved())->toBeTrue()
+        ->and($pending->approved_by)->toBe($this->supervisor->id);
+});
 
 test('تعديل حقل غير بنكي يبقي الاعتماد', function (): void {
     editBeneficiaryPage($this->beneficiary)
