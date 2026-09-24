@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\PermissionKey;
+use App\Policies\DeniesAbilitiesToEveryone;
 use App\UserRole;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
@@ -37,11 +38,20 @@ class AppServiceProvider extends ServiceProvider
      * فحص الصلاحيات على الخادم في كل طلب (docs/SPEC.md §2, §12.5):
      * الحساب المعطَّل ممنوع من كل شيء، والمدير الفعّال يملك كل شيء ضمنيًا،
      * والمشرف يملك ما مُنح له مباشرة فقط وبشرط اعتمادياته.
+     * ما تمنعه سياسة عن الجميع (DeniesAbilitiesToEveryone) ممنوع حتى على المدير.
      */
     private function registerPermissionGate(): void
     {
-        Gate::before(function (User $user, string $ability): ?bool {
+        Gate::before(function (User $user, string $ability, array $arguments): ?bool {
             if (! $user->is_active) {
+                return false;
+            }
+
+            $policy = isset($arguments[0]) && (is_object($arguments[0]) || is_string($arguments[0]))
+                ? Gate::getPolicyFor($arguments[0])
+                : null;
+
+            if ($policy instanceof DeniesAbilitiesToEveryone && in_array($ability, $policy->abilitiesDeniedToEveryone(), true)) {
                 return false;
             }
 
