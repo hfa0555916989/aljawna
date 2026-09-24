@@ -229,5 +229,5 @@ test('لا تنبيه حين يطابق اسم المصرف رمزه بأي صي
 test('كل تاريخ تظهر تحته معاينته بالهجري (أم القرى)', function (): void {
     Livewire::test(CreateBeneficiary::class)
         ->fillForm(beneficiaryFormData(['wedding_date' => '2026-06-16']))
-        ->assertSee('بالهجري: ١ محرم ١٤٤٨ هـ');
+        ->assertSee('بالهجري: 1 محرم 1448 هـ');
 });

@@ -54,3 +54,8 @@ test('بناء آيبان من رمز المصرف ورقم الحساب يعط�
     expect(SaudiIban::fromParts('80', '000000608010167519'))->toBe(DOCUMENTED_SAUDI_IBAN)
         ->and(SaudiIban::isValid(SaudiIban::fromParts('05', '123456789012345678')))->toBeTrue();
 });
+
+test('عرض الآيبان في مجموعات من أربع خانات دون تغيير قيمته المضغوطة', function (): void {
+    expect(SaudiIban::grouped(DOCUMENTED_SAUDI_IBAN))->toBe('SA03 8000 0000 6080 1016 7519')
+        ->and(SaudiIban::normalize(SaudiIban::grouped(DOCUMENTED_SAUDI_IBAN)))->toBe(DOCUMENTED_SAUDI_IBAN);
+});
