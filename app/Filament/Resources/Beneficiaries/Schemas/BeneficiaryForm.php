@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Beneficiaries\Schemas;
 
+use App\Models\Beneficiary;
 use App\Rules\BankAccountNumber as BankAccountNumberRule;
 use App\Rules\NoBankAccountInText;
+use App\Rules\NotInPast;
 use App\Rules\SaudiIban as SaudiIbanRule;
+use App\Rules\UniqueBeneficiaryIban;
 use App\Support\BankAccountNumber;
 use App\Support\HijriDate;
 use App\Support\SaudiBanks;
@@ -62,6 +65,7 @@ class BeneficiaryForm
                             ->maxLength(SaudiIban::LENGTH + 10)
                             ->placeholder('SA0000000000000000000000')
                             ->rule(new SaudiIbanRule)
+                            ->rule(fn (?Beneficiary $record): UniqueBeneficiaryIban => new UniqueBeneficiaryIban($record))
                             ->live(onBlur: true)
                             ->dehydrateStateUsing(fn (?string $state): string => SaudiIban::normalize($state))
                             ->hint(fn (Get $get, ?string $state): ?string => self::bankMismatchHint($get('bank_name'), $state))
@@ -84,20 +88,26 @@ class BeneficiaryForm
                             ->extraInputAttributes(['dir' => 'ltr'])
                             ->columnSpanFull(),
                         self::dateField('target_deadline'),
-                        self::dateField('recommended_deadline'),
-                        self::dateField('wedding_date'),
+                        self::dateField('recommended_deadline')
+                            ->afterOrEqual('target_deadline')
+                            ->validationMessages(['after_or_equal' => __('beneficiaries.validation.recommended_before_target')]),
+                        self::dateField('wedding_date')
+                            ->afterOrEqual('recommended_deadline')
+                            ->validationMessages(['after_or_equal' => __('beneficiaries.validation.wedding_before_recommended')]),
                     ]),
             ]);
     }
 
     /**
-     * حقل تاريخ ميلادي مع معاينة هجرية (أم القرى) تحته.
+     * حقل تاريخ ميلادي مع معاينة هجرية (أم القرى) تحته. لا يُقبل تاريخ ماضٍ عند التسجيل فقط،
+     * لأن مواعيد المستفيد المسجَّل قد تمضي ويبقى تعديل بقية بياناته ممكنًا.
      */
     private static function dateField(string $name): DatePicker
     {
         return DatePicker::make($name)
             ->label(__('beneficiaries.fields.'.$name))
             ->required()
+            ->rule(new NotInPast, fn (string $operation): bool => $operation === 'create')
             ->live()
             ->helperText(function (?string $state): ?string {
                 $hijri = HijriDate::format($state);

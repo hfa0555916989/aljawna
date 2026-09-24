@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('account_holder');
             $table->string('bank_name');
             $table->string('account_number', 30);
-            $table->string('iban', 24);
+            $table->string('iban', 24)->unique();
             $table->decimal('target_amount', 12, 2);
             $table->date('target_deadline');
             $table->date('recommended_deadline');
