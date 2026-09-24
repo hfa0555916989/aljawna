@@ -40,6 +40,16 @@ return [
             'report' => false,
         ],
 
+        // إيصالات الحوالات: قرص خاص لا يُخدم مباشرة، وتُعرض عبر مسار موقّع بعد فحص Policy (docs/SPEC.md §12.6).
+        'receipts' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/receipts'),
+            'visibility' => 'private',
+            'serve' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

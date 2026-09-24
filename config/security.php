@@ -49,4 +49,27 @@ return [
         'alert_days' => (int) env('BANK_CHANGE_ALERT_DAYS', 14),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | الحوالات والإيصالات (docs/SPEC.md §12.3, §12.6)
+    |--------------------------------------------------------------------------
+    |
+    | daily_limit: أقصى عدد حوالات يرفعها المبادر في اليوم الواحد بتوقيت الرياض.
+    | receipts.disk: قرص خاص (قابل للتبديل إلى تخزين كائنات خاص).
+    | receipts.link_minutes: مدة صلاحية رابط عرض الإيصال الموقّع.
+    | receipts.max_pixels: أقصى أبعاد للصورة (العرض × الارتفاع) قبل فك ترميزها،
+    | حماية للذاكرة من الصور المضغوطة المفخخة.
+    |
+    */
+
+    'transfers' => [
+        'daily_limit' => (int) env('TRANSFERS_DAILY_LIMIT', 10),
+    ],
+
+    'receipts' => [
+        'disk' => env('RECEIPTS_DISK', 'receipts'),
+        'link_minutes' => (int) env('RECEIPT_LINK_MINUTES', 10),
+        'max_pixels' => (int) env('RECEIPT_MAX_PIXELS', 20000000),
+    ],
+
 ];
