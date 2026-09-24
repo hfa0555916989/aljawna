@@ -30,6 +30,10 @@
             دخول
         </button>
 
+        <p class="text-center text-sm">
+            <a href="{{ route('password.forgot') }}" class="inline-flex min-h-11 items-center font-medium text-pri underline-offset-4 hover:underline">{{ __('recovery.forgot_title') }}</a>
+        </p>
+
         <p class="text-center text-sm text-muted">
             ليس لديك حساب؟
             <a href="{{ route('register') }}" class="inline-flex min-h-11 items-center font-medium text-pri underline-offset-4 hover:underline">أنشئ حسابًا</a>

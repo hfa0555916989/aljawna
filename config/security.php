@@ -87,4 +87,26 @@ return [
         'cache_seconds' => (int) env('STATS_CACHE_SECONDS', 60),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | استعادة كلمة المرور (docs/SPEC.md §4, §12.3)
+    |--------------------------------------------------------------------------
+    |
+    | interval_minutes: الفاصل بين طلبين لنفس الرقم.
+    | request_hours: يُغلق الطلب تلقائيًا بعدها.
+    | claim_minutes: حجز الاستلام لمشرف واحد.
+    | link_minutes: صلاحية رابط التعيين.
+    | max_per_ip_per_hour: حد الطلبات لكل IP. المواصفة تذكر الحد بلا رقم؛
+    | الافتراضي يطابق حد التسجيل إلى أن يُحسم.
+    |
+    */
+
+    'recovery' => [
+        'interval_minutes' => 10,
+        'request_hours' => 24,
+        'claim_minutes' => 15,
+        'link_minutes' => 30,
+        'max_per_ip_per_hour' => (int) env('RECOVERY_MAX_PER_IP_PER_HOUR', 5),
+    ],
+
 ];
