@@ -12,15 +12,21 @@ use App\UserRole;
 /**
  * الحوالات وإيصالاتها (docs/SPEC.md §2, §12.6, FR-13, FR-16).
  *
- * يرفع الحوالات المبادر، ويرى إيصاله صاحبه ومن يملك transfers.view فقط.
- * المدير الفعّال يملك كل شيء ضمنيًا عبر Gate::before، والمعطَّل ممنوع من كل شيء.
+ * يرفع الحوالات حساب بدور المبادر وحده بلا استثناء، فلا يرفعها المدير ولا المشرف (قرار T07).
+ * ويرى إيصاله صاحبه ومن يملك transfers.view فقط.
+ * المدير الفعّال يملك ما سوى الرفع ضمنيًا عبر Gate::before، والمعطَّل ممنوع من كل شيء.
  * لا حذف للحوالات لأي أحد؛ لا يوجد في المواصفة مسار لإزالة حوالة (§14 بند مفتوح 5).
  */
-class TransferPolicy implements DeniesAbilitiesToEveryone
+class TransferPolicy implements DeniesAbilitiesToEveryone, ReservesAbilitiesToPolicy
 {
     public function abilitiesDeniedToEveryone(): array
     {
         return ['delete', 'deleteAny', 'forceDelete', 'forceDeleteAny', 'restore', 'restoreAny'];
+    }
+
+    public function abilitiesReservedToPolicy(): array
+    {
+        return ['create'];
     }
 
     public function create(User $user): bool

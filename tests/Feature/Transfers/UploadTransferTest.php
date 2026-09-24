@@ -9,9 +9,11 @@ use App\Livewire\Transfers\Create;
 use App\Models\Beneficiary;
 use App\Models\Transfer;
 use App\Models\User;
+use App\PermissionKey;
 use App\Rules\ReceiptFile;
 use App\TransferReviewState;
 use Carbon\CarbonImmutable;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -334,12 +336,58 @@ test('الإجراء يرفض المشرف ولو استُدعي مباشرة', 
     expect(Transfer::query()->count())->toBe(0);
 });
 
+test('المدير يُرفض بـ 403 عند محاولة رفع حوالة من الصفحة أو من الإجراء مباشرة', function (): void {
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)->get(route('transfers.create'))->assertForbidden();
+    $this->actingAs($admin)->get(route('transfers.create', ['beneficiary' => $this->beneficiary->id]))->assertForbidden();
+
+    Livewire::actingAs($admin)->test(Create::class)->assertForbidden();
+
+    expect(fn () => app(CreateTransfer::class)->handle(
+        $admin, $this->beneficiary->id, '100', '2026-09-20', null,
+        UploadedFile::fake()->createWithContent('r.jpg', jpegBytes()),
+    ))->toThrow(AuthorizationException::class);
+
+    expect(Transfer::query()->count())->toBe(0)
+        ->and(Storage::disk('receipts')->allFiles())->toBe([]);
+});
+
+test('لا يرفع الحوالة إلا المبادر: المدير والمشرف الممنوح كل الصلاحيات يُرفضان', function (User $user): void {
+    expect($user->can('create', Transfer::class))->toBeFalse();
+
+    $this->actingAs($user)->get(route('transfers.create'))->assertForbidden();
+})->with([
+    'مدير' => fn (): User => User::factory()->admin()->create(),
+    'مشرف بكل الصلاحيات' => function (): User {
+        $this->seed(PermissionSeeder::class);
+
+        return User::factory()->supervisor()->withPermissions(array_map(
+            fn (PermissionKey $key): string => $key->value,
+            PermissionKey::cases(),
+        ))->create();
+    },
+]);
+
+test('منع المدير من الرفع لا يمسّ منحه الضمني لبقية صلاحيات الحوالات', function (): void {
+    $admin = User::factory()->admin()->create();
+    $transfer = Transfer::factory()->create();
+
+    expect($admin->can('viewReceipt', $transfer))->toBeTrue()
+        ->and($admin->can(PermissionKey::TransfersView->value))->toBeTrue()
+        ->and($admin->can('delete', $transfer))->toBeFalse();
+});
+
 test('صفحة المستفيد المتاح تربط المبادر بصفحة الرفع مع اختيار المستفيد', function (): void {
     $this->actingAs($this->initiator)
         ->get(route('beneficiaries.show', $this->beneficiary))
         ->assertSee(route('transfers.create', ['beneficiary' => $this->beneficiary->id]), false);
 
     $this->actingAs(User::factory()->supervisor()->create())
+        ->get(route('beneficiaries.show', $this->beneficiary))
+        ->assertDontSee(route('transfers.create', ['beneficiary' => $this->beneficiary->id]), false);
+
+    $this->actingAs(User::factory()->admin()->create())
         ->get(route('beneficiaries.show', $this->beneficiary))
         ->assertDontSee(route('transfers.create', ['beneficiary' => $this->beneficiary->id]), false);
 });
