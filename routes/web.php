@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Admin\UpdateSupervisorPermissionsController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\ShowTransferReceiptController;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
 use App\Livewire\Beneficiaries\Index as BeneficiaryIndex;
 use App\Livewire\Beneficiaries\Show as BeneficiaryShow;
 use App\Livewire\Home;
+use App\Livewire\Transfers\Create as TransferCreate;
+use App\Livewire\Transfers\Index as TransferIndex;
 use App\PermissionKey;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +29,13 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::post('/logout', LogoutController::class)->name('logout');
+
+    Route::livewire('/transfers', TransferCreate::class)->name('transfers.create');
+    Route::livewire('/my-transfers', TransferIndex::class)->name('transfers.index');
+    Route::get('/receipts/{transfer}', ShowTransferReceiptController::class)
+        ->whereNumber('transfer')
+        ->middleware('signed')
+        ->name('transfers.receipt');
 
     Route::put('/admin/supervisors/{supervisor}/permissions', UpdateSupervisorPermissionsController::class)
         ->whereNumber('supervisor')

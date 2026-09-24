@@ -1,7 +1,7 @@
 @props(['beneficiary'])
 
 @php
-    $percentage = \App\Support\ProgressPercentage::of('0', $beneficiary->target_amount);
+    $percentage = \App\Support\ProgressPercentage::of($beneficiary->collectedAmount(), $beneficiary->target_amount);
     $labelId = 'progress-'.$beneficiary->id;
 @endphp
 

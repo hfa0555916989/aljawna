@@ -16,7 +16,7 @@ use Throwable;
  */
 final class HijriDate
 {
-    private const string TIMEZONE = 'Asia/Riyadh';
+    public const string TIMEZONE = 'Asia/Riyadh';
 
     /**
      * أقصى فرق بالأيام بين التقدير الحسابي وتقويم أم القرى عند التحويل العكسي.

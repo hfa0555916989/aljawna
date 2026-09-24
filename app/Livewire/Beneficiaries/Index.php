@@ -49,7 +49,7 @@ class Index extends Component
             ? Beneficiary::closed()->orderByDesc('target_deadline')
             : Beneficiary::available()->orderBy('target_deadline');
 
-        return $query->orderBy('id')->get(self::PUBLIC_COLUMNS);
+        return $query->orderBy('id')->select(self::PUBLIC_COLUMNS)->withSum('transfers', 'amount')->get();
     }
 
     /**
