@@ -5,8 +5,10 @@ declare(strict_types=1);
 use App\Http\Controllers\Admin\UpdateSupervisorPermissionsController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\ShowTransferReceiptController;
+use App\Livewire\Auth\ForgotPassword;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
+use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Beneficiaries\Index as BeneficiaryIndex;
 use App\Livewire\Beneficiaries\Show as BeneficiaryShow;
 use App\Livewire\Dashboard;
@@ -30,6 +32,10 @@ Route::livewire('/join/{token}', JoinSupervisor::class)
 Route::middleware('guest')->group(function (): void {
     Route::livewire('/register', Register::class)->name('register');
     Route::livewire('/login', Login::class)->name('login');
+    Route::livewire('/forgot-password', ForgotPassword::class)->name('password.forgot');
+    Route::livewire('/reset/{token}', ResetPassword::class)
+        ->where('token', '[A-Za-z0-9\-_]+')
+        ->name('password.reset');
 });
 
 Route::middleware('auth')->group(function (): void {
