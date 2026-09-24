@@ -63,6 +63,14 @@ final class SaudiIban
     }
 
     /**
+     * للعرض فقط: مجموعات من أربع خانات، مثل "SA80 8000 ...". النسخ يكون للقيمة المضغوطة.
+     */
+    public static function grouped(?string $raw): string
+    {
+        return implode(' ', str_split(self::normalize($raw), 4));
+    }
+
+    /**
      * يبني آيبان صحيحًا من رمز المصرف و18 رقمًا للحساب (للمصانع والاختبارات).
      */
     public static function fromParts(string $bankCode, string $account): string
