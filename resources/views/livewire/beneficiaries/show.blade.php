@@ -1,11 +1,11 @@
 <div class="mx-auto max-w-3xl px-4 py-8">
-    <a href="{{ route('beneficiaries.index', $beneficiary->acceptsTransfers() ? [] : ['tab' => 'closed']) }}" class="inline-flex min-h-11 items-center text-sm font-semibold text-pri underline-offset-4 hover:underline">
+    <a href="{{ route('beneficiaries.index', $beneficiary->status === \App\BeneficiaryStatus::Closed ? ['tab' => 'closed'] : []) }}" class="inline-flex min-h-11 items-center text-sm font-semibold text-pri underline-offset-4 hover:underline">
         <span aria-hidden="true" class="me-1">→</span>{{ __('site.show.back') }}
     </a>
 
     <div class="mt-2 flex flex-wrap items-start justify-between gap-3">
         <h1 class="min-w-0 break-words text-2xl font-bold leading-10 text-ink">{{ $beneficiary->display_name }}</h1>
-        <x-beneficiary.status :status="$beneficiary->status" class="mt-2" />
+        <x-beneficiary.status :beneficiary="$beneficiary" class="mt-2" />
     </div>
 
     <section class="mt-6 rounded-[14px] border border-line bg-surface p-5">
@@ -41,7 +41,9 @@
             </p>
         </section>
     @else
-        <p role="note" class="mt-6 rounded-[14px] border border-line bg-surface p-5 text-ink">{{ __('site.show.closed_notice') }}</p>
+        <p role="note" class="mt-6 rounded-[14px] border border-line bg-surface p-5 text-ink">
+            {{ $beneficiary->status === \App\BeneficiaryStatus::Closed ? __('site.show.closed_notice') : __('site.show.account_unavailable') }}
+        </p>
     @endif
 
     <section aria-labelledby="dates-heading" class="mt-6 rounded-[14px] border border-line bg-surface p-5">

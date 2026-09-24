@@ -6,6 +6,7 @@ use App\BeneficiaryStatus;
 use App\Livewire\Beneficiaries\Show;
 use App\Models\Beneficiary;
 use App\Support\HijriDate;
+use App\Support\Money;
 use App\Support\SaudiIban;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
@@ -98,27 +99,58 @@ test('إغلاق المبادرة يُخفي حسابها من الاستجاب�
     assertNoBankData($component, $this->available);
 });
 
-test('غير المعتمد لا وجود له للعامة (404)', function (Closure $makeBeneficiary): void {
+test('صفحة غير المعتمد تُفتح (200) بمعلوماته العامة وتخفي بيانات الحساب', function (Closure $makeBeneficiary): void {
+    /** @var Beneficiary $beneficiary */
     $beneficiary = $makeBeneficiary();
+    $this->travelTo(now()->startOfDay());
 
-    $this->get(route('beneficiaries.show', $beneficiary))->assertNotFound();
+    $response = $this->get(route('beneficiaries.show', $beneficiary))
+        ->assertOk()
+        ->assertSeeText($beneficiary->display_name)
+        ->assertSeeText(__('site.beneficiaries.target', ['amount' => Money::format($beneficiary->target_amount)]))
+        ->assertSeeText(HijriDate::format($beneficiary->target_deadline))
+        ->assertSeeText(HijriDate::format($beneficiary->wedding_date))
+        ->assertDontSee('copyField(', false)
+        ->assertDontSeeText('مصرف الراجحي')
+        ->assertDontSeeText(__('site.show.account_heading'));
+
+    foreach (bankSecretsOf($beneficiary) as $secret) {
+        expect($response->getContent())->not->toContain($secret);
+    }
+
+    assertNoBankData(Livewire::test(Show::class, ['beneficiary' => $beneficiary])->call('$refresh'), $beneficiary);
 })->with([
-    'بانتظار الاعتماد' => fn (): Beneficiary => Beneficiary::factory()->create(),
-    'مغلق غير معتمد' => fn (): Beneficiary => Beneficiary::factory()->closed()->create(),
-    'أُلغي اعتماده بعد تعديل بنكي' => fn (): Beneficiary => Beneficiary::factory()->approvalRevoked()->create(),
+    'بانتظار الاعتماد' => fn (): Beneficiary => Beneficiary::factory()->create(['account_holder' => 'صاحب حساب وهمي بانتظار الاعتماد']),
+    'مغلق غير معتمد' => fn (): Beneficiary => Beneficiary::factory()->closed()->create(['account_holder' => 'صاحب حساب وهمي مغلق غير معتمد']),
+    'أُلغي اعتماده بعد تعديل بنكي' => fn (): Beneficiary => Beneficiary::factory()->approvalRevoked()->create(['account_holder' => 'صاحب حساب وهمي ملغى اعتماده']),
 ]);
+
+test('غير المعتمد غير المغلق لا يُوصف بأنه متاح ولا مغلق', function (): void {
+    $pending = Beneficiary::factory()->create();
+
+    $this->get(route('beneficiaries.show', $pending))
+        ->assertOk()
+        ->assertSeeText(__('site.show.account_unavailable'))
+        ->assertDontSeeText(__('site.show.closed_notice'))
+        ->assertDontSee('inline-flex shrink-0 items-center rounded-full border', false);
+});
 
 test('مستفيد غير موجود أو معرّف غير رقمي يعطي 404', function (): void {
     $this->get('/beneficiaries/999999')->assertNotFound();
     $this->get('/beneficiaries/abc')->assertNotFound();
 });
 
-test('إلغاء الاعتماد بعد فتح الصفحة يمنع الاستجابة التالية (404)', function (): void {
-    $component = Livewire::test(Show::class, ['beneficiary' => $this->available]);
+test('إلغاء الاعتماد بعد فتح الصفحة يُخفي الحساب من الاستجابة التالية', function (): void {
+    $component = Livewire::test(Show::class, ['beneficiary' => $this->available])
+        ->assertSeeText('صاحب حساب المتاح الوهمي');
 
     $this->available->forceFill(['approved_at' => null, 'approval_revoked_at' => now()])->save();
 
-    $component->call('$refresh')->assertNotFound();
+    $component->call('$refresh')
+        ->assertOk()
+        ->assertSeeText($this->available->display_name);
+
+    assertNoBankData($component, $this->available);
 });
 
 test('لا يمكن تبديل المستفيد من المتصفح إلى آخر', function (): void {

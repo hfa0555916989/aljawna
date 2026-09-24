@@ -57,13 +57,17 @@ test('تبويب المغلقة يعرض كل المغلقة معتمدة أو �
         ->assertDontSeeText($this->revoked->display_name);
 });
 
-test('المغلقة غير المعتمدة تظهر بلا رابط لصفحتها لأنها غير متاحة للعامة', function (): void {
-    $this->get(route('beneficiaries.index', ['tab' => 'closed']))
-        ->assertOk()
-        ->assertSee('href="'.route('beneficiaries.show', $this->closed).'"', false)
-        ->assertDontSee('href="'.route('beneficiaries.show', $this->pendingClosed).'"', false);
+test('بطاقة المغلقة غير المعتمدة رابط عادي لصفحتها كبقية البطاقات', function (): void {
+    $html = (string) $this->get(route('beneficiaries.index', ['tab' => 'closed']))->assertOk()->getContent();
 
-    $this->get(route('beneficiaries.show', $this->pendingClosed))->assertNotFound();
+    foreach ([$this->closed, $this->pendingClosed] as $beneficiary) {
+        expect(substr_count($html, 'href="'.route('beneficiaries.show', $beneficiary).'"'))->toBe(2);
+    }
+
+    $this->get(route('beneficiaries.show', $this->pendingClosed))
+        ->assertOk()
+        ->assertSeeText($this->pendingClosed->display_name)
+        ->assertDontSee('copyField(', false);
 });
 
 test('التبديل بين التبويبين عبر Livewire يغيّر القائمة', function (): void {

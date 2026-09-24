@@ -16,8 +16,8 @@ use Livewire\Component;
 /**
  * صفحة المستفيد /beneficiaries/{id} (docs/SPEC.md FR-25, FR-26, FR-28, FR-37).
  *
- * غير المعتمد لا وجود له للعامة (404). بيانات الحساب لا تُحفظ في حالة المكوّن
- * (فلا تصل لقطة Livewire)، وتُمرَّر للعرض فقط حين تكون المبادرة متاحة.
+ * تُفتح الصفحة لكل مستفيد موجود بمعلوماته العامة (قرار T06)، أما بيانات الحساب فللمعتمد المتاح فقط.
+ * بيانات الحساب لا تُحفظ في حالة المكوّن (فلا تصل لقطة Livewire)، وتُمرَّر للعرض فقط عند acceptsTransfers().
  */
 class Show extends Component
 {
@@ -26,15 +26,13 @@ class Show extends Component
 
     public function mount(Beneficiary $beneficiary): void
     {
-        abort_unless($beneficiary->isApproved(), 404);
-
         $this->beneficiaryId = $beneficiary->id;
     }
 
     #[Computed]
     public function beneficiary(): Beneficiary
     {
-        return Beneficiary::public()->findOrFail($this->beneficiaryId);
+        return Beneficiary::query()->findOrFail($this->beneficiaryId);
     }
 
     public function render(): View
