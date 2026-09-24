@@ -27,6 +27,28 @@ class UpdateSupervisorPermissions
     public function __construct(private PermissionRegistrar $registrar) {}
 
     /**
+     * هل يستطيع هذا الفاعل منح هذه الصلاحيات دفعة واحدة؟ تُستخدم عند الدعوة
+     * قبل وجود المشرف، وبنفس قواعد المنح في التعديل.
+     *
+     * @param  list<string>  $permissions
+     *
+     * @throws AuthorizationException
+     * @throws ValidationException
+     */
+    public function assertCanGrant(User $actor, array $permissions): void
+    {
+        if (! $actor->can(PermissionKey::SupervisorsManage->value)) {
+            throw new AuthorizationException(__('permissions.errors.unauthorized'));
+        }
+
+        $requested = array_values(array_unique($permissions));
+
+        $this->ensurePermissionsExist($requested);
+        $this->ensureDependenciesAreMet($requested);
+        $this->ensureActorOwns($actor, $requested);
+    }
+
+    /**
      * يضبط صلاحيات المشرف المباشرة لتساوي القائمة المعطاة تمامًا.
      *
      * @param  list<string>  $permissions
