@@ -25,11 +25,14 @@
                 </div>
             </x-slot>
 
-            @if ($beneficiary->transfers->isEmpty())
+            @if ($beneficiary->transfers_count === 0)
                 <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('transfers.admin.no_transfers') }}</p>
             @else
+                @php
+                    $transfers = $this->transfersOf($beneficiary);
+                @endphp
                 <ul role="list" class="divide-y divide-gray-200 dark:divide-white/10">
-                    @foreach ($beneficiary->transfers as $transfer)
+                    @foreach ($transfers as $transfer)
                         @php
                             $amount = \App\Support\Money::format($transfer->amount);
                             $date = \App\Support\HijriDate::dual($transfer->transferred_on);
@@ -53,7 +56,7 @@
                                 </div>
                                 <div>
                                     <dt class="text-gray-500 dark:text-gray-400">{{ __('transfers.admin.initiator') }}</dt>
-                                    <dd class="text-gray-950 dark:text-white">{{ $transfer->user->firstName() }}</dd>
+                                    <dd class="text-gray-950 dark:text-white"><span class="break-words">{{ $transfer->user->full_name }}</span></dd>
                                 </div>
                                 <div>
                                     <dt class="text-gray-500 dark:text-gray-400">{{ __('transfers.fields.bank_reference') }}</dt>
@@ -86,6 +89,12 @@
                         </li>
                     @endforeach
                 </ul>
+
+                @if ($transfers->hasPages())
+                    <div class="mt-4" data-transfers-pagination="{{ $beneficiary->id }}">
+                        <x-filament::pagination :paginator="$transfers" />
+                    </div>
+                @endif
             @endif
         </x-filament::section>
     @empty

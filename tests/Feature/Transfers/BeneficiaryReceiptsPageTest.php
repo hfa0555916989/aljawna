@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Filament\Pages\BeneficiaryReceipts;
 use App\Models\Beneficiary;
 use App\Models\Transfer;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\PermissionSeeder;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 
 /*
 |--------------------------------------------------------------------------
@@ -158,15 +161,15 @@ test('رابط الإيصال موقّع وينتهي بعد 10 دقائق، و�
     $this->actingAs($this->viewer)->get($url)->assertForbidden();
 });
 
-test('تظهر للمبادر المحوِّل باسمه الأول فقط، ويُعلَّم المتكرر', function (): void {
+test('يظهر اسم المبادر المحوِّل كاملًا بلا جواله، ويُعلَّم المتكرر', function (): void {
     $initiator = User::factory()->create(['full_name' => 'مشعل عبدالله خالد العجاوني']);
     Transfer::factory()->for($initiator)->repeated()->create(['bank_reference' => 'REF-777']);
 
     $this->actingAs($this->viewer)->get(RECEIPTS_PAGE)
         ->assertOk()
-        ->assertSee('مشعل')
-        ->assertDontSee('مشعل عبدالله')
+        ->assertSee('مشعل عبدالله خالد العجاوني')
         ->assertDontSee($initiator->phone)
+        ->assertDontSee(substr($initiator->phone, 4))
         ->assertSee('REF-777')
         ->assertSee('متكررة');
 });
@@ -182,6 +185,52 @@ test('المبادرات الأحدث حوالةً أولًا، ثم التي ب
     $groups = receiptsGroupedInPage($this->actingAs($this->viewer)->get(RECEIPTS_PAGE)->getContent() ?: '');
 
     expect(array_keys($groups))->toBe([$newer->id, $older->id, $empty->id]);
+});
+
+test('حوالات كل مبادرة مرقّمة 15 في الصفحة وبترقيم مستقل عن غيرها', function (): void {
+    $crowded = Beneficiary::factory()->approved()->create();
+    $other = Beneficiary::factory()->approved()->create();
+
+    $crowdedTransfers = collect(range(1, 17))->map(fn (int $day): Transfer => Transfer::factory()->for($crowded)->create([
+        'transferred_on' => CarbonImmutable::parse('2026-08-01')->addDays($day)->toDateString(),
+    ]));
+    $otherTransfers = Transfer::factory()->count(3)->for($other)->create();
+
+    $newestFirst = $crowdedTransfers->sortByDesc('transferred_on')->pluck('id')->values();
+    $pageName = BeneficiaryReceipts::transfersPageName($crowded);
+
+    $firstHtml = $this->actingAs($this->viewer)->get(RECEIPTS_PAGE)->assertOk()->getContent() ?: '';
+    $firstPage = receiptsGroupedInPage($firstHtml);
+
+    expect(BeneficiaryReceipts::TRANSFERS_PER_PAGE)->toBe(15)
+        ->and($firstPage[$crowded->id])->toBe($newestFirst->take(15)->sort()->values()->all())
+        ->and($firstPage[$other->id])->toHaveCount(3)
+        ->and($firstHtml)->toContain('data-transfers-pagination="'.$crowded->id.'"')
+        ->and($firstHtml)->not->toContain('data-transfers-pagination="'.$other->id.'"')
+        ->and($firstHtml)->toContain('17 حوالة');
+
+    $secondPage = receiptsGroupedInPage(
+        $this->actingAs($this->viewer)->get(RECEIPTS_PAGE.'?'.$pageName.'=2')->assertOk()->getContent() ?: '',
+    );
+
+    expect($secondPage[$crowded->id])->toBe($newestFirst->slice(15)->sort()->values()->all())
+        ->and($secondPage[$other->id])->toBe($otherTransfers->pluck('id')->sort()->values()->all());
+});
+
+test('زر الصفحة التالية داخل المبادرة ينقل حوالاتها وحدها', function (): void {
+    $crowded = Beneficiary::factory()->approved()->create();
+    Transfer::factory()->count(16)->for($crowded)->create();
+    $oldest = Transfer::factory()->for($crowded)->create(['transferred_on' => '2020-01-01']);
+    $pageName = BeneficiaryReceipts::transfersPageName($crowded);
+
+    Filament::setCurrentPanel('admin');
+
+    Livewire::actingAs($this->viewer)
+        ->test(BeneficiaryReceipts::class)
+        ->assertDontSee('data-transfer="'.$oldest->id.'"', false)
+        ->call('gotoPage', 2, $pageName)
+        ->assertSet('paginators.'.$pageName, 2)
+        ->assertSee('data-transfer="'.$oldest->id.'"', false);
 });
 
 test('الصفحة مقسّمة إلى 10 مبادرات في كل صفحة', function (): void {

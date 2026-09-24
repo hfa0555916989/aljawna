@@ -17,7 +17,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Str;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Spatie\Permission\Traits\HasPermissions;
 
@@ -60,14 +59,6 @@ class User extends Authenticatable implements FilamentUser, HasName
     public function getFilamentName(): string
     {
         return $this->full_name;
-    }
-
-    /**
-     * الاسم الأول وحده، لقوائم المبادرين (docs/SPEC.md §12.6).
-     */
-    public function firstName(): string
-    {
-        return Str::of($this->full_name)->squish()->before(' ')->toString();
     }
 
     /**

@@ -11,7 +11,6 @@ use App\Services\ReceiptStorage;
 use BackedEnum;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
 
@@ -26,6 +25,8 @@ class BeneficiaryReceipts extends PermissionPage
     use WithPagination;
 
     public const int PER_PAGE = 10;
+
+    public const int TRANSFERS_PER_PAGE = 15;
 
     protected static ?string $slug = 'beneficiary-receipts';
 
@@ -69,15 +70,29 @@ class BeneficiaryReceipts extends PermissionPage
             ->withCount('transfers')
             ->withSum('transfers', 'amount')
             ->withMax('transfers', 'created_at')
-            ->with(['transfers' => fn (Relation $transfers): Relation => $transfers
-                ->select(['id', 'user_id', 'beneficiary_id', 'amount', 'transferred_on', 'bank_reference', 'is_repeated', 'receipt_path', 'created_at'])
-                ->with('user:id,full_name')
-                ->orderByDesc('transferred_on')
-                ->orderByDesc('id'),
-            ])
             ->orderByRaw('transfers_max_created_at desc nulls last')
             ->orderBy('id')
             ->paginate(self::PER_PAGE);
+    }
+
+    /**
+     * حوالات المبادرة الواحدة بترقيم مستقل لكل مبادرة، حتى لا تثقل الصفحة إن تراكمت بالمئات.
+     *
+     * @return LengthAwarePaginator<int, Transfer>
+     */
+    public function transfersOf(Beneficiary $beneficiary): LengthAwarePaginator
+    {
+        return $beneficiary->transfers()
+            ->select(['id', 'user_id', 'beneficiary_id', 'amount', 'transferred_on', 'bank_reference', 'is_repeated', 'receipt_path'])
+            ->with('user:id,full_name')
+            ->orderByDesc('transferred_on')
+            ->orderByDesc('id')
+            ->paginate(self::TRANSFERS_PER_PAGE, pageName: self::transfersPageName($beneficiary));
+    }
+
+    public static function transfersPageName(Beneficiary $beneficiary): string
+    {
+        return 'transfers_'.$beneficiary->id;
     }
 
     public function receiptUrl(Transfer $transfer): string
