@@ -13,25 +13,33 @@ use Carbon\CarbonImmutable;
 
 test('يعرض التاريخ بالتقويمين مع اسم اليوم', function (): void {
     expect(HijriDate::dual('2026-06-16'))->toBe([
-        'hijri' => '١ محرم ١٤٤٨ هـ',
-        'gregorian' => '١٦ يونيو ٢٠٢٦م',
+        'hijri' => '1 محرم 1448 هـ',
+        'gregorian' => '16 يونيو 2026م',
         'weekday' => 'الثلاثاء',
     ]);
+});
+
+test('التواريخ بأرقام لاتينية فقط بلا أرقام هندية', function (): void {
+    $dual = HijriDate::dual('2025-12-27');
+
+    expect(implode(' ', (array) $dual))->not->toMatch('/[٠-٩]/u')
+        ->and($dual['hijri'] ?? null)->toMatch('/^\d{1,2} .+ 1447 هـ$/u')
+        ->and($dual['gregorian'] ?? null)->toBe('27 ديسمبر 2025م');
 });
 
 test('يعرض التاريخ الهجري لتواريخ معروفة في تقويم أم القرى', function (string $gregorian, string $hijri): void {
     expect(HijriDate::format($gregorian))->toBe($hijri);
 })->with([
-    'أول رمضان ١٤٤٦' => ['2025-03-01', '١ رمضان ١٤٤٦ هـ'],
-    'آخر رمضان ١٤٤٦ (٢٩ يومًا)' => ['2025-03-29', '٢٩ رمضان ١٤٤٦ هـ'],
-    'أول شوال ١٤٤٦' => ['2025-03-30', '١ شوال ١٤٤٦ هـ'],
-    'يوم النحر ١٤٤٥' => ['2024-06-16', '١٠ ذو الحجة ١٤٤٥ هـ'],
+    'أول رمضان ١٤٤٦' => ['2025-03-01', '1 رمضان 1446 هـ'],
+    'آخر رمضان ١٤٤٦ (٢٩ يومًا)' => ['2025-03-29', '29 رمضان 1446 هـ'],
+    'أول شوال ١٤٤٦' => ['2025-03-30', '1 شوال 1446 هـ'],
+    'يوم النحر ١٤٤٥' => ['2024-06-16', '10 ذو الحجة 1445 هـ'],
 ]);
 
 test('يقبل كائن التاريخ ويعرضه بتوقيت الرياض', function (): void {
     $lateUtcEvening = CarbonImmutable::parse('2026-06-15 22:30', 'UTC');
 
-    expect(HijriDate::format($lateUtcEvening))->toBe('١ محرم ١٤٤٨ هـ')
+    expect(HijriDate::format($lateUtcEvening))->toBe('1 محرم 1448 هـ')
         ->and(HijriDate::weekday($lateUtcEvening))->toBe('الثلاثاء');
 });
 

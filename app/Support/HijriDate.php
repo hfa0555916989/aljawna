@@ -12,7 +12,7 @@ use Throwable;
 /**
  * عرض التواريخ بالهجري (أم القرى) والميلادي معًا، والتحويل العكسي، والعدّ التنازلي (docs/SPEC.md §8).
  *
- * التواريخ تُخزَّن ميلادية، وتُعرض بتوقيت الرياض.
+ * التواريخ تُخزَّن ميلادية، وتُعرض بتوقيت الرياض وبأرقام لاتينية كبقية أرقام الموقع (قرار T06).
  */
 final class HijriDate
 {
@@ -34,22 +34,22 @@ final class HijriDate
     }
 
     /**
-     * التاريخ الهجري بصيغة طويلة، مثل "١١ ربيع الآخر ١٤٤٨ هـ"، أو null لقيمة فارغة أو غير صالحة.
+     * التاريخ الهجري بصيغة طويلة وأرقام لاتينية، مثل "11 ربيع الآخر 1448 هـ"، أو null لقيمة فارغة أو غير صالحة.
      */
     public static function format(DateTimeInterface|string|null $date): ?string
     {
         $day = self::toDay($date);
 
-        return $day === null ? null : self::render('ar_SA@calendar=islamic-umalqura', IntlDateFormatter::TRADITIONAL, $day);
+        return $day === null ? null : self::render('ar_SA@calendar=islamic-umalqura;numbers=latn', IntlDateFormatter::TRADITIONAL, $day);
     }
 
     /**
-     * التاريخ الميلادي بصيغة طويلة، مثل "١٦ يونيو ٢٠٢٦م".
+     * التاريخ الميلادي بصيغة طويلة وأرقام لاتينية، مثل "16 يونيو 2026م".
      */
     public static function gregorian(DateTimeInterface|string|null $date): ?string
     {
         $day = self::toDay($date);
-        $formatted = $day === null ? null : self::render('ar_SA@calendar=gregorian', IntlDateFormatter::GREGORIAN, $day);
+        $formatted = $day === null ? null : self::render('ar_SA@calendar=gregorian;numbers=latn', IntlDateFormatter::GREGORIAN, $day);
 
         return $formatted === null ? null : $formatted.'م';
     }
