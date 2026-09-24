@@ -95,6 +95,59 @@ function bankSecretsOf(Beneficiary $beneficiary): array
 }
 
 /**
+ * صورة JPEG مولَّدة، واختياريًا بمقطع EXIF فيه اسم جهاز واتجاه (لإثبات إزالته عند الحفظ).
+ */
+function jpegBytes(int $width = 60, int $height = 40, ?string $exifMake = null, int $orientation = 1, int $red = 180): string
+{
+    $image = imagecreatetruecolor($width, $height);
+    imagefill($image, 0, 0, (int) imagecolorallocate($image, $red, 60, 60));
+    ob_start();
+    imagejpeg($image);
+    $jpeg = (string) ob_get_clean();
+
+    if ($exifMake === null) {
+        return $jpeg;
+    }
+
+    $make = $exifMake."\0";
+    $tiff = 'II'.pack('v', 42).pack('V', 8)
+        .pack('v', 2)
+        .pack('vvVV', 0x010F, 2, strlen($make), 8 + 2 + 2 * 12 + 4)
+        .pack('vvV', 0x0112, 3, 1).pack('vv', $orientation, 0)
+        .pack('V', 0)
+        .$make;
+    $payload = "Exif\0\0".$tiff;
+
+    return substr($jpeg, 0, 2)."\xFF\xE1".pack('n', strlen($payload) + 2).$payload.substr($jpeg, 2);
+}
+
+/**
+ * صورة PNG مولَّدة، واختياريًا بمقطع نصي tEXt مضمَّن (بيانات وصفية يجب ألا تبقى بعد الحفظ).
+ */
+function pngBytes(int $width = 60, int $height = 40, ?string $textChunk = null): string
+{
+    $image = imagecreatetruecolor($width, $height);
+    imagefill($image, 0, 0, (int) imagecolorallocate($image, 30, 90, 160));
+    ob_start();
+    imagepng($image);
+    $png = (string) ob_get_clean();
+
+    if ($textChunk === null) {
+        return $png;
+    }
+
+    $data = 'Comment'."\0".$textChunk;
+    $chunk = pack('N', strlen($data)).'tEXt'.$data.pack('N', crc32('tEXt'.$data));
+
+    return substr($png, 0, -12).$chunk.substr($png, -12);
+}
+
+function pdfBytes(string $marker = 'receipt'): string
+{
+    return "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Title ({$marker}) >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n";
+}
+
+/**
  * يثبت أن HTML المكوّن ولقطته وآثاره لا تحتوي أي قيمة من الحساب البنكي.
  */
 function assertNoBankData(Testable $component, Beneficiary $beneficiary): void
