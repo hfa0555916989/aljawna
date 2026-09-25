@@ -43,7 +43,7 @@ class CompletePasswordReset
         return DB::transaction(function () use ($token, $password): User {
             $request = $token->request()->lockForUpdate()->first();
 
-            if ($request === null || $request->status !== PasswordResetStatus::LinkSent) {
+            if ($request === null || ! in_array($request->status, [PasswordResetStatus::LinkSent, PasswordResetStatus::Claimed], true)) {
                 throw ValidationException::withMessages([
                     'form' => __('recovery.errors.token_used'),
                 ]);

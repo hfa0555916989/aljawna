@@ -32,7 +32,15 @@ class SendPasswordResetLink
      */
     public function handle(User $actor, PasswordResetRequest $request, bool $otherNumber, ?string $reason, ?string $otherPhone): array
     {
-        if (! $actor->can(PermissionKey::RecoveryHandle->value) || ! $request->isClaimedBy($actor)) {
+        if (! $actor->can(PermissionKey::RecoveryHandle->value)) {
+            throw new AuthorizationException(__('permissions.errors.unauthorized'));
+        }
+
+        if (! $actor->can('handle', $request)) {
+            throw new AuthorizationException(__('recovery.errors.admin_only'));
+        }
+
+        if (! $request->isClaimedBy($actor)) {
             throw new AuthorizationException(__('recovery.errors.claim_held'));
         }
 

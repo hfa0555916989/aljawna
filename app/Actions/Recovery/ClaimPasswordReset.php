@@ -13,6 +13,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 
 /**
  * حجز طلب الاستعادة لمشرف واحد لمدة 15 دقيقة (docs/SPEC.md §4).
+ * يُعاد استلام الطلب بعد إرسال رابطه لإصدار رابط جديد يُبطل السابق.
  */
 class ClaimPasswordReset
 {
@@ -27,16 +28,22 @@ class ClaimPasswordReset
             throw new AuthorizationException(__('permissions.errors.unauthorized'));
         }
 
-        if ($request->status === PasswordResetStatus::Claimed && $request->isClaimedBy($actor)) {
+        if (! $actor->can('handle', $request)) {
+            throw new AuthorizationException(__('recovery.errors.admin_only'));
+        }
+
+        if ($request->isClaimedBy($actor)) {
             return;
         }
 
-        $heldByOther = $request->status === PasswordResetStatus::Claimed
+        $claimable = [PasswordResetStatus::Pending, PasswordResetStatus::Claimed, PasswordResetStatus::LinkSent];
+
+        $heldByOther = in_array($request->status, [PasswordResetStatus::Claimed, PasswordResetStatus::LinkSent], true)
             && $request->claimed_until !== null
             && $request->claimed_until->isFuture()
-            && $request->claimed_by !== $actor->id;
+            && (int) $request->claimed_by !== (int) $actor->id;
 
-        if ($heldByOther || ! in_array($request->status, [PasswordResetStatus::Pending, PasswordResetStatus::Claimed], true)) {
+        if ($heldByOther || ! in_array($request->status, $claimable, true)) {
             throw new AuthorizationException(__('recovery.errors.claim_held'));
         }
 

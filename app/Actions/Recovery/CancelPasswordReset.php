@@ -27,6 +27,10 @@ class CancelPasswordReset
             throw new AuthorizationException(__('permissions.errors.unauthorized'));
         }
 
+        if (! $actor->can('handle', $request)) {
+            throw new AuthorizationException(__('recovery.errors.admin_only'));
+        }
+
         if (! $request->status->isActive()) {
             throw new AuthorizationException(__('recovery.errors.claim_held'));
         }
