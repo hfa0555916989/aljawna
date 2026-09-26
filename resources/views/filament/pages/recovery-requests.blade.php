@@ -8,6 +8,9 @@
             <div class="mt-3 flex flex-wrap gap-2">
                 @if ($request->isClaimedBy(auth()->user()))
                     <button type="button" wire:click="$set('sendingId', {{ $request->id }})" class="min-h-11 rounded-lg bg-primary-600 px-3 text-white">{{ __('recovery.send') }}</button>
+                    @can(\App\PermissionKey::RecoveryChangePhone->value)
+                        <button type="button" wire:click="$set('changingId', {{ $request->id }})" class="min-h-11 rounded-lg border px-3">{{ __('recovery.change_phone') }}</button>
+                    @endcan
                 @else
                     <button type="button" wire:click="claim({{ $request->id }})" class="min-h-11 rounded-lg bg-primary-600 px-3 text-white">{{ __('recovery.claim') }}</button>
                 @endif
@@ -37,6 +40,26 @@
                     @endif
                     <button type="submit" class="min-h-11 rounded-lg bg-primary-600 px-3 text-white" @if ($destination === 'other') @disabled(trim($reason) === '') @endif>
                         {{ __('recovery.send') }}
+                    </button>
+                </form>
+            @endif
+
+            @if ($changingId === $request->id && $request->isClaimedBy(auth()->user()))
+                <form wire:submit="changePhone({{ $request->id }})" class="mt-4 flex flex-col gap-3">
+                    <label class="block text-sm">{{ __('recovery.reason') }}
+                        <textarea wire:model.live="changeReason" class="mt-1 w-full rounded-lg border p-2" required></textarea>
+                    </label>
+                    @error('change_reason') <p class="text-sm text-danger-600">{{ $message }}</p> @enderror
+                    <label class="block text-sm">{{ __('recovery.new_phone') }}
+                        <input wire:model="newPhone" dir="ltr" class="mt-1 w-full min-h-11 rounded-lg border p-2">
+                    </label>
+                    @error('new_phone') <p class="text-sm text-danger-600">{{ $message }}</p> @enderror
+                    <label class="block text-sm">{{ __('recovery.new_phone_confirmation') }}
+                        <input wire:model="newPhoneConfirmation" dir="ltr" class="mt-1 w-full min-h-11 rounded-lg border p-2">
+                    </label>
+                    @error('new_phone_confirmation') <p class="text-sm text-danger-600">{{ $message }}</p> @enderror
+                    <button type="submit" class="min-h-11 rounded-lg bg-primary-600 px-3 text-white" @disabled(trim($changeReason) === '')>
+                        {{ __('recovery.change_phone') }}
                     </button>
                 </form>
             @endif

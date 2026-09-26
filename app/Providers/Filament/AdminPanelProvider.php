@@ -7,6 +7,7 @@ namespace App\Providers\Filament;
 use App\Filament\AvatarProviders\InitialAvatarProvider;
 use App\Filament\Pages\Auth\Login;
 use App\Http\Middleware\AuthenticateAdminPanel;
+use App\Http\Middleware\EnsureSessionEpoch;
 use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -77,6 +78,7 @@ class AdminPanelProvider extends PanelProvider
             // دائمة: تُعاد مع طلبات Livewire، فيسري تعطيل الحساب أو تغيير الدور فورًا (docs/SPEC.md §2).
             ->authMiddleware([
                 AuthenticateAdminPanel::class,
+                EnsureSessionEpoch::class,
             ], isPersistent: true);
     }
 }

@@ -22,7 +22,7 @@ use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Spatie\Permission\Traits\HasPermissions;
 
 #[Fillable(['full_name', 'phone', 'password', 'role', 'is_active', 'show_contact', 'registered_ip', 'last_login_ip', 'last_login_at'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'session_epoch'])]
 class User extends Authenticatable implements FilamentUser, HasName
 {
     /** @use HasFactory<UserFactory> */
@@ -139,6 +139,7 @@ class User extends Authenticatable implements FilamentUser, HasName
             'is_active' => 'boolean',
             'show_contact' => 'boolean',
             'last_login_at' => 'datetime',
+            'session_epoch' => 'integer',
         ];
     }
 

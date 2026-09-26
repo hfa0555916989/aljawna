@@ -44,7 +44,7 @@ class SendPasswordResetLink
             throw new AuthorizationException(__('recovery.errors.claim_held'));
         }
 
-        $request->loadMissing('user');
+        $request->load('user');
         $user = $request->user;
 
         if ($user === null) {
