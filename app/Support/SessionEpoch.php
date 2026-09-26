@@ -4,33 +4,40 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use Illuminate\Support\Facades\Cache;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
- * رقم جيل الجلسة لكل مستخدم. رفعه يُنهي الجلسات القديمة لأن وسيط الجلسة
- * يقارنه بما خُزّن عند الدخول (docs/SPEC.md §4.2).
+ * جيل جلسات المستخدم في عمود users.session_epoch. رفعه ينهي كل جلساته القائمة
+ * في الموقع ولوحة الإدارة عند تعديل رقم الدخول (docs/SPEC.md §4.2).
  */
 final class SessionEpoch
 {
     public const string SESSION_KEY = 'auth_session_epoch';
 
-    public static function current(int $userId): int
+    public static function current(User $user): int
     {
-        return (int) Cache::get(self::cacheKey($userId), 0);
+        if (array_key_exists('session_epoch', $user->getAttributes())) {
+            return (int) $user->session_epoch;
+        }
+
+        return (int) User::query()->whereKey($user->getKey())->value('session_epoch');
     }
 
+    /**
+     * رفع ذري في قاعدة البيانات، مع تدوير رمز "تذكّرني" كي لا تعود جلسة قديمة عبره.
+     */
     public static function bump(int $userId): void
     {
-        Cache::forever(self::cacheKey($userId), self::current($userId) + 1);
+        User::query()->whereKey($userId)->toBase()->update([
+            'session_epoch' => DB::raw('session_epoch + 1'),
+            'remember_token' => Str::random(60),
+        ]);
     }
 
-    public static function bindToSession(int $userId): void
+    public static function bindToSession(User $user): void
     {
-        session()->put(self::SESSION_KEY, self::current($userId));
-    }
-
-    private static function cacheKey(int $userId): string
-    {
-        return 'auth.session_epoch.'.$userId;
+        session()->put(self::SESSION_KEY, self::current($user));
     }
 }

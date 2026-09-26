@@ -71,6 +71,12 @@ class ChangeLoginPhone
                 throw new AuthorizationException(__('recovery.errors.change_forbidden'));
             }
 
+            if ($user->phone === $newPhone) {
+                throw ValidationException::withMessages([
+                    'new_phone' => __('recovery.errors.phone_unchanged'),
+                ]);
+            }
+
             $taken = User::query()
                 ->where('phone', $newPhone)
                 ->whereKeyNot($user->id)
@@ -95,13 +101,9 @@ class ChangeLoginPhone
                 'reason' => $cleanReason,
             ]);
 
+            SessionEpoch::bump((int) $user->getKey());
+
             Audit::record(self::AUDIT_ACTION, $request, [], $actor);
         });
-
-        $owner = $request->user()->first();
-
-        if ($owner instanceof User) {
-            SessionEpoch::bump((int) $owner->getKey());
-        }
     }
 }

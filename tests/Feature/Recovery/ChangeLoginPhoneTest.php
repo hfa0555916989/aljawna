@@ -15,6 +15,8 @@ use App\RecoveryLogAction;
 use Database\Seeders\PermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -59,7 +61,10 @@ test('التعديل بسبب يحفظ السجل وينهي الجلسة وال
     $supervisor = User::factory()->supervisor()->withPermissions(['recovery.handle', 'recovery.change_phone'])->create();
     $request = phoneChangeRequest($user, $supervisor);
 
-    $this->actingAs($user)->get('/dashboard')->assertOk();
+    Auth::login($user);
+    $this->get('/dashboard')->assertOk();
+    $this->app['auth']->forgetGuards();
+    $this->get('/dashboard')->assertOk();
 
     app(ChangeLoginPhone::class)->handle($supervisor, $request, 'الشريحة ضاعت', '0511200022', '0511200022');
 
@@ -186,6 +191,82 @@ test('المدير يغيّر رقم دخول مشرف أو مدير آخر بس
     'مدير آخر' => fn () => User::factory()->admin()->create(),
     'مشرف' => fn () => User::factory()->supervisor()->withPermissions(['recovery.handle'])->create(),
 ]);
+
+test('جلسة مشرف أو مدير في /admin تُقطع فورًا بعد تغيير رقمه', function (User $owner): void {
+    $admin = User::factory()->admin()->create();
+    $request = phoneChangeRequest($owner, $admin);
+
+    Auth::login($owner);
+    $this->get('/admin')->assertOk();
+    $this->app['auth']->forgetGuards();
+    $this->get('/admin')->assertOk();
+
+    app(ChangeLoginPhone::class)->handle($admin, $request, 'تحقق المدير من هويته', '0511200082', '0511200082');
+    $this->app['auth']->forgetGuards();
+
+    $this->get('/admin')->assertRedirect(route('login'));
+    $this->assertGuest();
+})->with([
+    'مشرف' => fn () => User::factory()->supervisor()->withPermissions(['recovery.handle'])->create(['phone' => '+966511200081']),
+    'مدير' => fn () => User::factory()->admin()->create(['phone' => '+966511200081']),
+]);
+
+test('إنهاء الجلسات يصمد بعد تفريغ التخزين المؤقت يدويًا', function (): void {
+    $user = User::factory()->create(['phone' => '+966511200091']);
+    $supervisor = User::factory()->supervisor()->withPermissions(['recovery.handle', 'recovery.change_phone'])->create();
+    $request = phoneChangeRequest($user, $supervisor);
+    $rememberToken = $user->fresh()->remember_token;
+
+    Auth::login($user);
+    $this->get('/dashboard')->assertOk();
+
+    app(ChangeLoginPhone::class)->handle($supervisor, $request, 'فقد شريحته', '0511200092', '0511200092');
+    Artisan::call('cache:clear');
+    $this->app['auth']->forgetGuards();
+
+    $this->get('/dashboard')->assertRedirect(route('login'));
+
+    expect($user->fresh()->session_epoch)->toBe(1)
+        ->and($user->fresh()->remember_token)->not->toBe($rememberToken);
+});
+
+test('رقم جديد مطابق للرقم الحالي يُرفض برسالة واضحة', function (): void {
+    $user = User::factory()->create(['phone' => '+966511200101']);
+    $supervisor = User::factory()->supervisor()->withPermissions(['recovery.handle', 'recovery.change_phone'])->create();
+    $request = phoneChangeRequest($user, $supervisor);
+
+    expect(fn () => app(ChangeLoginPhone::class)->handle($supervisor, $request, 'فقد شريحته', '0511200101', '0511200101'))
+        ->toThrow(ValidationException::class, __('recovery.errors.phone_unchanged'));
+
+    expect(RecoveryLogEntry::query()->count())->toBe(0)
+        ->and($user->fresh()->session_epoch)->toBe(0);
+});
+
+test('سجل الاستعادة مرقّم الصفحات', function (): void {
+    $owner = User::factory()->create();
+    $supervisor = User::factory()->supervisor()->create();
+    $request = phoneChangeRequest($owner, $supervisor);
+
+    foreach (range(1, RecoveryLog::PER_PAGE + 1) as $index) {
+        RecoveryLogEntry::query()->create([
+            'request_id' => $request->id,
+            'user_id' => $owner->id,
+            'performed_by' => $supervisor->id,
+            'action' => RecoveryLogAction::LinkRegistered,
+            'sent_to_phone' => $owner->phone,
+            'reason' => 'سجل رقم '.$index,
+        ]);
+    }
+
+    $admin = User::factory()->admin()->create();
+    $firstPage = $this->actingAs($admin)->get('/admin/recovery/log')->assertOk()->getContent() ?: '';
+    $secondPage = $this->actingAs($admin)->get('/admin/recovery/log?page=2')->assertOk()->getContent() ?: '';
+
+    expect(RecoveryLog::PER_PAGE)->toBeGreaterThanOrEqual(10)->toBeLessThanOrEqual(20)
+        ->and(substr_count($firstPage, 'data-recovery-log-entry'))->toBe(RecoveryLog::PER_PAGE)
+        ->and(substr_count($secondPage, 'data-recovery-log-entry'))->toBe(1)
+        ->and($secondPage)->toContain('سجل رقم 1<');
+});
 
 function phoneChangeRequest(User $user, User $supervisor): PasswordResetRequest
 {

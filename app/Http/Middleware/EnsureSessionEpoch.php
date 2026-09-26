@@ -31,7 +31,7 @@ class EnsureSessionEpoch
         $stored = $request->session()->get(SessionEpoch::SESSION_KEY);
         $storedValue = $stored === null ? 0 : (int) $stored;
 
-        if ($storedValue !== SessionEpoch::current((int) $user->getKey())) {
+        if ($storedValue !== SessionEpoch::current($user)) {
             Auth::guard()->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-4">
     @forelse ($this->entries as $entry)
         @php($when = \App\Support\HijriDate::dual($entry->created_at))
-        <article wire:key="recovery-log-{{ $entry->id }}" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
+        <article wire:key="recovery-log-{{ $entry->id }}" data-recovery-log-entry class="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
             <p class="text-sm text-gray-500">{{ __('recovery.log_action') }}</p>
             <p class="font-semibold">{{ __('recovery.actions.'.$entry->action->value) }}</p>
             <p class="mt-2 text-sm text-gray-500">{{ __('recovery.log_user') }}</p>
@@ -25,4 +25,6 @@
     @empty
         <p>{{ __('recovery.log_empty') }}</p>
     @endforelse
+
+    <x-filament::pagination :paginator="$this->entries" />
 </div>
