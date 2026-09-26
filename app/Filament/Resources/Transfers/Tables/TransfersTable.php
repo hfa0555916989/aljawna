@@ -147,7 +147,7 @@ class TransfersTable
         return User::query()
             ->where('role', UserRole::Supervisor)
             ->where('is_active', true)
-            ->permission(PermissionKey::TransfersReview->value)
+            ->whereHas('permissions', fn (Builder $query): Builder => $query->where('name', PermissionKey::TransfersReview->value))
             ->orderBy('full_name')
             ->get(['id', 'full_name']);
     }

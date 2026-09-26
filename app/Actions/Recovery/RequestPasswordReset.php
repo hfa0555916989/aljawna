@@ -17,6 +17,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * إنشاء طلب استعادة لرقم مسجّل (docs/SPEC.md §4, FR-7, FR-8).
+ * كل محاولة تُحتسب في حد عنوان الشبكة قبل أي فحص، حتى لا تُستخدم الصفحة لاكتشاف الأرقام المسجّلة.
  */
 class RequestPasswordReset
 {
@@ -29,6 +30,12 @@ class RequestPasswordReset
      */
     public function handle(string $phoneInput, string $ip): array
     {
+        if (RateLimiter::hit('recovery:ip:'.$ip, 3600) > (int) config('security.recovery.max_per_ip_per_hour')) {
+            throw ValidationException::withMessages([
+                'phone' => __('recovery.errors.ip_limit'),
+            ]);
+        }
+
         $phone = SaudiPhone::normalize($phoneInput);
         $user = $phone === null ? null : User::query()->where('phone', $phone)->first();
 
@@ -65,17 +72,6 @@ class RequestPasswordReset
                 'phone' => __('recovery.errors.interval', ['minutes' => $interval]),
             ]);
         }
-
-        $key = 'recovery:ip:'.$ip;
-        $max = (int) config('security.recovery.max_per_ip_per_hour');
-
-        if (RateLimiter::tooManyAttempts($key, $max)) {
-            throw ValidationException::withMessages([
-                'phone' => __('recovery.errors.ip_limit'),
-            ]);
-        }
-
-        RateLimiter::hit($key, 3600);
 
         $request = PasswordResetRequest::query()->create([
             'user_id' => $user->id,

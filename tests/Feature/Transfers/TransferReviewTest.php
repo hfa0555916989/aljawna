@@ -44,6 +44,24 @@ test('المدير ومن يملك transfers.assign يسندان لمشرف مؤ
         ->and(AuditLog::query()->where('action', 'transfer.assigned')->exists())->toBeTrue();
 })->with(['admin', 'assigner']);
 
+test('نافذة الإسناد تُفتح من الجدول وتعرض المشرفين المؤهلين فقط ثم تُسند', function (): void {
+    $transfer = Transfer::factory()->for($this->beneficiary)->create();
+    $unqualified = User::factory()->supervisor()->withPermissions(['transfers.view'])->create();
+    $assign = TestAction::make('assign')->table($transfer);
+
+    Livewire::actingAs($this->assigner)->test(ListTransfers::class)
+        ->mountAction($assign)
+        ->assertActionMounted($assign)
+        ->assertMountedActionModalSee($this->reviewer->full_name)
+        ->assertMountedActionModalDontSee($unqualified->full_name)
+        ->setActionData(['assignee_id' => $this->reviewer->id])
+        ->callMountedAction()
+        ->assertHasNoActionErrors()
+        ->assertNotified(__('transfers.review.assigned'));
+
+    expect($transfer->fresh()->assigned_to)->toBe($this->reviewer->id);
+});
+
 test('من لا يملك transfers.assign لا يسند', function (): void {
     $transfer = Transfer::factory()->for($this->beneficiary)->create();
     $viewer = User::factory()->supervisor()->withPermissions(['transfers.view'])->create();

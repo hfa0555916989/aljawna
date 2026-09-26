@@ -11,11 +11,14 @@ use App\Models\PasswordResetRequest;
 use App\Models\User;
 use App\PasswordResetStatus;
 use App\PermissionKey;
+use App\UserRole;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 
@@ -56,7 +59,7 @@ class RecoveryRequests extends PermissionPage
 
     public static function getNavigationBadge(): ?string
     {
-        $count = PasswordResetRequest::query()->where('status', PasswordResetStatus::Pending)->count();
+        $count = self::handleableRequests()->where('status', PasswordResetStatus::Pending)->count();
 
         return $count > 0 ? (string) $count : null;
     }
@@ -67,7 +70,7 @@ class RecoveryRequests extends PermissionPage
     #[Computed]
     public function requests(): Collection
     {
-        return PasswordResetRequest::query()
+        return self::handleableRequests()
             ->with('user:id,full_name,phone')
             ->whereIn('status', [
                 PasswordResetStatus::Pending->value,
@@ -102,6 +105,8 @@ class RecoveryRequests extends PermissionPage
             return;
         }
 
+        Gate::authorize('handle', $request);
+
         try {
             $result = $action->handle(
                 $actor,
@@ -134,6 +139,8 @@ class RecoveryRequests extends PermissionPage
             return;
         }
 
+        Gate::authorize('handle', $request);
+
         try {
             $callback($actor, $request);
         } catch (AuthorizationException $exception) {
@@ -141,5 +148,22 @@ class RecoveryRequests extends PermissionPage
         }
 
         unset($this->requests);
+    }
+
+    /**
+     * طلبات حسابات المشرفين والمدير لا تظهر إلا للمدير (PasswordResetRequestPolicy).
+     *
+     * @return Builder<PasswordResetRequest>
+     */
+    private static function handleableRequests(): Builder
+    {
+        $query = PasswordResetRequest::query();
+        $actor = auth()->user();
+
+        if (! $actor instanceof User || $actor->role !== UserRole::Admin) {
+            $query->whereHas('user', fn (Builder $owner): Builder => $owner->where('role', UserRole::User));
+        }
+
+        return $query;
     }
 }
