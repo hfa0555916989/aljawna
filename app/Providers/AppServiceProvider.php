@@ -8,9 +8,12 @@ use App\Models\User;
 use App\PermissionKey;
 use App\Policies\DeniesAbilitiesToEveryone;
 use App\Policies\ReservesAbilitiesToPolicy;
+use App\Support\SessionEpoch;
 use App\UserRole;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -37,6 +40,12 @@ class AppServiceProvider extends ServiceProvider
         Carbon::setLocale(app()->getLocale());
 
         $this->registerPermissionGate();
+
+        Event::listen(Login::class, function (Login $event): void {
+            if ($event->user instanceof User) {
+                SessionEpoch::bindToSession((int) $event->user->getKey());
+            }
+        });
     }
 
     /**

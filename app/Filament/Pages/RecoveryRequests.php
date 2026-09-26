@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Actions\Recovery\CancelPasswordReset;
+use App\Actions\Recovery\ChangeLoginPhone;
 use App\Actions\Recovery\ClaimPasswordReset;
 use App\Actions\Recovery\SendPasswordResetLink;
 use App\Models\PasswordResetRequest;
@@ -41,6 +42,14 @@ class RecoveryRequests extends PermissionPage
     public string $reason = '';
 
     public string $otherPhone = '';
+
+    public ?int $changingId = null;
+
+    public string $changeReason = '';
+
+    public string $newPhone = '';
+
+    public string $newPhoneConfirmation = '';
 
     public static function getRequiredPermission(): PermissionKey
     {
@@ -125,6 +134,22 @@ class RecoveryRequests extends PermissionPage
 
         Notification::make()->title(__('recovery.sent'))->success()->send();
         $this->redirect($result['whatsapp_url']);
+    }
+
+    public function changePhone(int $id, ChangeLoginPhone $action): void
+    {
+        $actor = auth()->user();
+        $request = PasswordResetRequest::query()->find($id);
+
+        if (! $actor instanceof User || $request === null) {
+            return;
+        }
+
+        $action->handle($actor, $request, $this->changeReason, $this->newPhone, $this->newPhoneConfirmation);
+
+        Notification::make()->title(__('recovery.phone_changed'))->success()->send();
+        $this->reset('changingId', 'changeReason', 'newPhone', 'newPhoneConfirmation');
+        unset($this->requests);
     }
 
     /**
