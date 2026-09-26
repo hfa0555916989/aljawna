@@ -21,6 +21,7 @@ use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -226,12 +227,16 @@ test('تغيير كلمة المرور ينهي الجلسة القديمة', fu
     $sent = app(SendPasswordResetLink::class)->handle($supervisor, $request, false, null, null);
     $token = tokenFromRecovery($sent['whatsapp_url']);
 
-    $this->actingAs($user)->get('/dashboard')->assertOk();
+    Auth::login($user);
+    $this->get('/dashboard')->assertOk();
+    $this->app['auth']->forgetGuards();
+    $this->get('/dashboard')->assertOk();
 
     app(CompletePasswordReset::class)->handle($token, 'Newpassword1');
     $this->app['auth']->forgetGuards();
 
     $this->get('/dashboard')->assertRedirect(route('login'));
+    $this->assertGuest();
 });
 
 test('الأمر يغلق الطلب بعد 24 ساعة', function (): void {
