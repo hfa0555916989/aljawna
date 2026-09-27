@@ -61,6 +61,9 @@ return [
         'admin' => [
             'demoted' => 'تخفيض مدير',
         ],
+        'branding' => [
+            'updated' => 'تعديل الهوية',
+        ],
         'beneficiary' => [
             'approved' => 'اعتماد مستفيد',
             'bank_account_updated' => 'تعديل حساب بنكي لمستفيد',
