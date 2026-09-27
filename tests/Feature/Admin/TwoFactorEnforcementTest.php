@@ -6,79 +6,88 @@ use App\Actions\Admin\InviteAdmin;
 use App\Livewire\JoinAdmin;
 use App\Models\Page;
 use App\Models\User;
+use App\Support\TwoFactorSession;
 use Database\Seeders\PermissionSeeder;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 /*
 |--------------------------------------------------------------------------
-| التحقق بخطوتين إلزامي لكل منطقة الإدارة (docs/DECISIONS.md)
+| التحقق بخطوتين إلزامي قبل أي وصول لأدوار اللوحة (docs/DECISIONS.md، T20)
 |--------------------------------------------------------------------------
+| الإعداد لا يكون داخل اللوحة، بل من رابط الدعوة أو رابط admin:reset-2fa.
+| أي جلسة دور لوحة بلا تحقق مفعَّل أو لم تجتز خطوته الثانية تُنهى في كل مسار.
 */
 
 beforeEach(function (): void {
     $this->seed(PermissionSeeder::class);
 });
 
-function setUpUrl(): string
-{
-    return url(adminPath('multi-factor-authentication/set-up'));
-}
-
-test('المدير المُنشأ عبر admin:invite يُلزَم بإعداد التحقق عند أول دخول', function (): void {
+test('المدير المُنشأ عبر admin:invite يُعدّ التحقق قبل إنشاء حسابه ويدخل اللوحة فورًا', function (): void {
     $result = app(InviteAdmin::class)->handle('0512345678');
 
     Livewire::test(JoinAdmin::class, ['token' => $result['plain_token']])
         ->set('full_name', 'عبدالله محمد أحمد العجاوني')
         ->set('password', 'S3cure-pass')
         ->set('password_confirmation', 'S3cure-pass')
+        ->set('two_factor_code', pendingTwoFactorCode('join:admin:'.$result['plain_token']))
         ->call('join')
-        ->assertRedirect(url(adminPath()));
+        ->assertHasNoErrors();
 
     $admin = User::query()->where('phone', '+966512345678')->sole();
 
-    expect($admin->hasTwoFactorEnabled())->toBeFalse();
-
-    $this->get(adminPath())->assertRedirect(setUpUrl());
-    $this->get(setUpUrl())->assertOk();
-});
-
-test('بعد إعداد التحقق في نفس الجلسة تُفتح اللوحة دون خروج', function (): void {
-    $supervisor = User::factory()->supervisor()->withoutTwoFactor()->create();
-
-    $this->actingAs($supervisor);
-    $this->get(adminPath())->assertRedirect(setUpUrl());
-
-    AppAuthentication::make()->saveSecret($supervisor, AppAuthentication::make()->generateSecret());
+    expect($admin->hasTwoFactorEnabled())->toBeTrue()
+        ->and(session(TwoFactorSession::SESSION_KEY))->toBeTrue();
 
     $this->get(adminPath())->assertOk();
 });
 
-test('صفحة الإعداد تعرض إعداد تطبيق المصادقة، وتُحوِّل من أعدّه مسبقًا إلى اللوحة', function (): void {
-    $this->actingAs(User::factory()->admin()->withoutTwoFactor()->create())
-        ->get(setUpUrl())
-        ->assertOk()
-        ->assertSee('تطبيق المصادقة');
+test('جلسة دور لوحة بلا تحقق مفعَّل تُنهى في اللوحة وفي مسارات الموقع', function (string $path): void {
+    $supervisor = User::factory()->supervisor()->withoutTwoFactor()->create();
 
-    $this->actingAs(User::factory()->admin()->create())
-        ->get(setUpUrl())
-        ->assertRedirect();
+    $this->actingAs($supervisor)->get($path === 'panel' ? adminPath() : $path)->assertRedirect(route('login'));
+
+    expect(Auth::check())->toBeFalse();
+})->with([
+    'اللوحة' => ['panel'],
+    'لوحة المبادر' => ['/dashboard'],
+    'حوالاتي' => ['/my-transfers'],
+    'الرئيسية' => ['/'],
+]);
+
+test('جلسة صاحب تحقق مفعَّل لم تجتز الخطوة الثانية تُنهى في مسارات الموقع أيضًا', function (): void {
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)->withSession([TwoFactorSession::SESSION_KEY => false])
+        ->get('/dashboard')
+        ->assertRedirect(route('login'));
+
+    expect(Auth::check())->toBeFalse();
 });
 
-test('مسارات الإدارة خارج Filament تتطلب إعداد التحقق أيضًا', function (): void {
+test('لا صفحة إعداد للتحقق داخل اللوحة', function (): void {
+    $this->actingAs(User::factory()->admin()->create())
+        ->get(adminPath('multi-factor-authentication/set-up'))
+        ->assertNotFound();
+});
+
+test('مسارات الإدارة خارج Filament تُنهي جلسة دور لوحة بلا تحقق أيضًا', function (): void {
     $admin = User::factory()->admin()->withoutTwoFactor()->create();
     $page = Page::factory()->create();
 
     $this->actingAs($admin)
         ->get(route('admin.pages.preview', $page))
-        ->assertRedirect(setUpUrl());
+        ->assertRedirect(route('login'));
 
     $target = User::factory()->supervisor()->create();
 
     $this->actingAs($admin)
         ->put(route('admin.supervisors.permissions.update', $target), ['permissions' => []])
-        ->assertRedirect(setUpUrl());
+        ->assertRedirect(route('login'));
+
+    expect($target->fresh()->permissions()->count())->toBe(0);
 });
 
 test('مسارات الإدارة خارج Filament تقع تحت ADMIN_PATH', function (): void {
@@ -89,10 +98,11 @@ test('مسارات الإدارة خارج Filament تقع تحت ADMIN_PATH', f
         ->and(route('admin.supervisors.permissions.update', $target, false))->toStartWith(adminPath().'/');
 });
 
-test('المبادر لا يُطلب منه إعداد التحقق ولا يصل إلى صفحة الإعداد', function (): void {
-    $this->actingAs(User::factory()->create())
-        ->get(setUpUrl())
-        ->assertNotFound();
+test('المبادر لا يُطلب منه التحقق ويصل إلى لوحته، ولا تكشف اللوحة وجودها له', function (): void {
+    $initiator = User::factory()->create();
+
+    $this->actingAs($initiator)->get('/dashboard')->assertOk();
+    $this->actingAs($initiator)->get(adminPath('multi-factor-authentication/set-up'))->assertNotFound();
 });
 
 test('سر التحقق ورموز الاسترداد مخفية ومشفَّرة في قاعدة البيانات', function (): void {

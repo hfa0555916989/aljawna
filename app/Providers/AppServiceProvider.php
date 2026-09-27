@@ -8,13 +8,17 @@ use App\Models\User;
 use App\PermissionKey;
 use App\Policies\DeniesAbilitiesToEveryone;
 use App\Policies\ReservesAbilitiesToPolicy;
+use App\Support\RedactingLogManager;
 use App\Support\SessionEpoch;
 use App\Support\TwoFactorSession;
 use App\UserRole;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,7 +29,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // حجب الجوالات والآيبانات من كل قناة سجل (T20)، ومنها قناة Laravel Cloud.
+        $this->app->singleton('log', fn (Application $app): RedactingLogManager => new RedactingLogManager($app));
+        Facade::clearResolvedInstance('log');
+
+        // مسار الاستثناء في السجلات بلا قيم المعاملات (جوالات وكلمات مرور) خارج التطوير المحلي.
+        if (! $this->app->isLocal()) {
+            ini_set('zend.exception_ignore_args', '1');
+        }
     }
 
     /**
@@ -39,6 +50,10 @@ class AppServiceProvider extends ServiceProvider
 
         // الوقت النسبي (diffForHumans) بالعربية في قوائم "أحدث المبادرات" (docs/SPEC.md §7).
         Carbon::setLocale(app()->getLocale());
+
+        // كشف N+1 في التطوير المحلي والاختبارات فقط (T20): التحميل الكسول لعلاقة نموذج
+        // جاء ضمن مجموعة يرمي استثناءً بدل استعلام لكل صف. الإنتاج والبيئات المرحلية لا تتأثر.
+        Model::preventLazyLoading($this->app->environment('local', 'testing'));
 
         $this->registerPermissionGate();
 

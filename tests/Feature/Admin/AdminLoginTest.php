@@ -163,17 +163,29 @@ test('لا يمكن تزوير صاحب الخطوة الثانية دون كل�
     expect(Auth::check())->toBeFalse();
 });
 
-test('دور لوحة لم يُعدّ التحقق بعد يدخل ثم يُلزَم بإعداده قبل أي صفحة', function (string $role): void {
+test('دور لوحة لم يُعدّ التحقق بعد لا يدخل بكلمة المرور وحدها ولا تُنشأ له جلسة (T20)', function (string $role): void {
     User::factory()->{$role}()->withoutTwoFactor()->create(['phone' => '+966512345678', 'password' => 'S3cure-pass']);
 
-    attemptPanelLogin()->assertHasNoErrors()->assertRedirect(url(adminPath()));
+    attemptPanelLogin()
+        ->assertHasErrors(['phone'])
+        ->assertNoRedirect()
+        ->assertSet('challengedUser', null)
+        ->assertSee('لا يمكن دخول هذا الحساب قبل إعداد التحقق بخطوتين');
 
-    $setUpUrl = url(adminPath('multi-factor-authentication/set-up'));
+    expect(Auth::check())->toBeFalse()
+        ->and(LoginAttempt::query()->sole()->succeeded)->toBeFalse();
 
-    $this->get(adminPath())->assertRedirect($setUpUrl);
-    $this->get(adminPath('security'))->assertRedirect($setUpUrl);
-    $this->get($setUpUrl)->assertOk()->assertSee('تطبيق المصادقة');
+    $this->get(adminPath())->assertRedirect(route('login'));
 })->with(['admin', 'supervisor']);
+
+test('كلمة المرور الخاطئة لدور لوحة بلا تحقق تبقى "بيانات الدخول غير صحيحة" ولا تكشف حالة التحقق', function (): void {
+    User::factory()->admin()->withoutTwoFactor()->create(['phone' => '+966512345678', 'password' => 'S3cure-pass']);
+
+    attemptPanelLogin(password: 'wrong-pass')
+        ->assertHasErrors(['phone'])
+        ->assertSee('بيانات الدخول غير صحيحة')
+        ->assertDontSee('إعداد التحقق بخطوتين');
+});
 
 test('المبادر لا تُطلب منه خطوة ثانية ويذهب إلى /dashboard', function (): void {
     User::factory()->create(['phone' => '+966512345678', 'password' => 'S3cure-pass']);

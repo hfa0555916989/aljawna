@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Actions\Supervisors\AcceptSupervisorInvite;
+use App\Livewire\Concerns\EnrollsTwoFactor;
 use App\Models\SupervisorInvite;
 use App\Rules\FullName;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -23,6 +22,8 @@ use Livewire\Component;
 #[Title('الانضمام كمشرف')]
 class JoinSupervisor extends Component
 {
+    use EnrollsTwoFactor;
+
     #[Locked]
     public string $token = '';
 
@@ -63,23 +64,27 @@ class JoinSupervisor extends Component
 
         $this->validate();
 
+        $secret = $this->confirmedTwoFactorSecret();
+
         try {
-            $user = $accept->handle($this->token, $this->full_name, $this->password, (string) request()->ip());
+            $result = $accept->handle($this->token, $this->full_name, $this->password, (string) request()->ip(), $secret);
         } catch (ValidationException $exception) {
             $this->invalid = true;
 
             throw $exception;
         }
 
-        Auth::login($user);
-        Session::regenerate();
-
-        $this->redirect($user->homeUrl());
+        $this->reset('password', 'password_confirmation');
+        $this->completeEnrollment($result['user'], $result['recovery_codes']);
     }
 
     public function render(): View
     {
-        return view('livewire.join-supervisor');
+        if ($this->invalid || $this->recoveryCodes !== []) {
+            return view('livewire.join-supervisor', ['enrollment' => null]);
+        }
+
+        return view('livewire.join-supervisor', ['enrollment' => $this->enrollmentViewData($this->phone)]);
     }
 
     /**
@@ -91,7 +96,13 @@ class JoinSupervisor extends Component
             'full_name' => ['required', 'string', 'max:255', new FullName],
             'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed', $this->passwordNotPhoneRule()],
             'password_confirmation' => ['required', 'string'],
+            'two_factor_code' => ['required', 'string', 'max:16'],
         ];
+    }
+
+    protected function enrollmentContext(): string
+    {
+        return 'join:supervisor:'.$this->token;
     }
 
     private function passwordNotPhoneRule(): \Closure

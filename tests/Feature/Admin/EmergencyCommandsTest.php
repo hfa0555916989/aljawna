@@ -9,6 +9,7 @@ use App\Livewire\Auth\Login;
 use App\Livewire\Auth\ResetAdminPassword;
 use App\Models\AdminPasswordReset;
 use App\Models\AuditLog;
+use App\Models\TwoFactorSetupLink;
 use App\Models\User;
 use App\Support\SessionEpoch;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
@@ -117,7 +118,9 @@ test('admin:reset-2fa يحذف السر ورموز الاسترداد وينهي
 
     $this->artisan('admin:reset-2fa', ['phone' => '0512345678'])
         ->expectsConfirmation('سيُحذف إعداد التحقق بخطوتين ورموز الاسترداد لهذا المستخدم وتنتهي كل جلساته. متابعة؟', 'yes')
-        ->expectsOutputToContain('سيُطلب منه إعداده من جديد')
+        ->expectsOutputToContain('لن يستطيع الدخول بكلمة المرور وحدها')
+        ->expectsOutputToContain(url('/two-factor/setup/'))
+        ->expectsOutputToContain('https://wa.me/966512345678?text=')
         ->assertSuccessful();
 
     $supervisor->refresh();
@@ -128,10 +131,10 @@ test('admin:reset-2fa يحذف السر ورموز الاسترداد وينهي
         ->and(SessionEpoch::current($supervisor))->toBe($epoch + 1)
         ->and($audit->actor_id)->toBeNull()
         ->and($audit->subject_id)->toBe($supervisor->id)
-        ->and($audit->meta)->toBe(['issued_via' => 'cli', 'was_enabled' => true]);
+        ->and($audit->meta)->toBe(['issued_via' => 'cli', 'was_enabled' => true, 'setup_link_id' => TwoFactorSetupLink::query()->sole()->id]);
 });
 
-test('بعد admin:reset-2fa يُلزَم صاحب دور اللوحة بإعداد التحقق عند دخوله التالي', function (): void {
+test('بعد admin:reset-2fa لا يدخل صاحب دور اللوحة بكلمة المرور وحدها (T20)', function (): void {
     User::factory()->admin()->create(['phone' => '+966512345678', 'password' => 'S3cure-pass']);
 
     $this->artisan('admin:reset-2fa', ['phone' => '0512345678', '--force' => true])->assertSuccessful();
@@ -140,9 +143,21 @@ test('بعد admin:reset-2fa يُلزَم صاحب دور اللوحة بإعد�
         ->set('phone', '0512345678')
         ->set('password', 'S3cure-pass')
         ->call('login')
-        ->assertRedirect(url(adminPath()));
+        ->assertHasErrors(['phone'])
+        ->assertNoRedirect();
 
-    $this->get(adminPath())->assertRedirect(url(adminPath('multi-factor-authentication/set-up')));
+    expect(auth()->check())->toBeFalse();
+});
+
+test('admin:reset-2fa للمبادر لا يصدر رابط إعداد لأنه لا يستخدم التحقق', function (): void {
+    User::factory()->create(['phone' => '+966512345678']);
+
+    $this->artisan('admin:reset-2fa', ['phone' => '0512345678', '--force' => true])
+        ->expectsOutputToContain('أُعيد ضبط التحقق بخطوتين وأُنهيت جلسات المستخدم.')
+        ->doesntExpectOutputToContain('/two-factor/setup/')
+        ->assertSuccessful();
+
+    expect(TwoFactorSetupLink::query()->exists())->toBeFalse();
 });
 
 test('admin:reset-2fa لا يغيّر شيئًا دون تأكيد أو لرقم غير مسجّل', function (): void {

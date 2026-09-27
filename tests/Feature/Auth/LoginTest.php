@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Livewire\Auth\Login;
 use App\Models\LoginAttempt;
 use App\Models\User;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Livewire\Features\SupportTesting\Testable;
@@ -29,6 +30,19 @@ function attemptLogin(string $phone, string $password): Testable
         ->set('phone', $phone)
         ->set('password', $password)
         ->call('login');
+}
+
+/**
+ * دور لوحة بتحقق مفعَّل: دخول بكلمة المرور ثم رمز TOTP الحالي.
+ */
+function attemptLoginWithTwoFactor(User $user, string $role): Testable
+{
+    $provider = AppAuthentication::make();
+    $user->forceFill(['role' => $role, 'app_authentication_secret' => $provider->generateSecret()])->save();
+
+    return attemptLogin('0512345678', 'S3cure-pass')
+        ->set('code', $provider->getCurrentCode($user))
+        ->call('verifyTwoFactor');
 }
 
 test('صفحة الدخول تُعرض بحقول معنونة', function (): void {
@@ -57,22 +71,24 @@ test('الدخول الناجح يوجّه إلى اللوحة ويحدّث بي
         ->and($attempt->succeeded)->toBeTrue();
 });
 
-test('المشرف والمدير (قبل إعداد التحقق بخطوتين) يُحوَّلان من /login مباشرة إلى اللوحة', function (string $role): void {
+test('المشرف والمدير قبل إعداد التحقق بخطوتين لا يدخلان بكلمة المرور وحدها (T20)', function (string $role): void {
     $this->user->update(['role' => $role]);
 
     attemptLogin('0512345678', 'S3cure-pass')
-        ->assertHasNoErrors()
-        ->assertRedirect(url(adminPath()));
+        ->assertHasErrors(['phone'])
+        ->assertNoRedirect()
+        ->assertSee('لا يمكن دخول هذا الحساب قبل إعداد التحقق بخطوتين');
 
-    expect(Auth::id())->toBe($this->user->id);
+    expect(Auth::check())->toBeFalse()
+        ->and(LoginAttempt::query()->sole()->succeeded)->toBeFalse()
+        ->and($this->user->fresh()->last_login_at)->toBeNull();
 })->with(['supervisor', 'admin']);
 
 test('المشرف يُحوَّل إلى اللوحة حتى لو سبق أن طلب صفحة أخرى', function (): void {
-    $this->user->update(['role' => 'supervisor']);
     $this->get('/dashboard')->assertRedirect(route('login'));
     expect(session('url.intended'))->toBe(url('/dashboard'));
 
-    attemptLogin('0512345678', 'S3cure-pass')->assertRedirect(url(adminPath()));
+    attemptLoginWithTwoFactor($this->user, 'supervisor')->assertRedirect(url(adminPath()));
 });
 
 test('الدخول يقبل الجوال بالأرقام العربية', function (): void {
@@ -161,7 +177,7 @@ test('المستخدم المسجّل دخوله يُحوَّل من صفحة ا
 });
 
 test('المشرف والمدير بجلسة قائمة يُحوَّلان من /login إلى اللوحة', function (string $role): void {
-    $this->user->update(['role' => $role]);
+    $this->user->forceFill(['role' => $role, 'app_authentication_secret' => AppAuthentication::make()->generateSecret()])->save();
 
     $this->actingAs($this->user)
         ->get('/login')
@@ -169,10 +185,10 @@ test('المشرف والمدير بجلسة قائمة يُحوَّلان من 
 })->with(['supervisor', 'admin']);
 
 test('وجهة زيارة /login بجلسة قائمة هي نفسها وجهة إرسال النموذج لكل دور', function (string $role, string $destination): void {
-    $this->user->update(['role' => $role]);
     $destination = $destination === 'panel' ? adminPath() : $destination;
 
-    attemptLogin('0512345678', 'S3cure-pass')->assertRedirect(url($destination));
+    ($role === 'user' ? attemptLogin('0512345678', 'S3cure-pass') : attemptLoginWithTwoFactor($this->user, $role))
+        ->assertRedirect(url($destination));
 
     $this->get('/login')->assertRedirect(url($destination));
 })->with([

@@ -42,6 +42,7 @@ test('الرمز يُستهلك لمرة واحدة', function (): void {
         ->set('full_name', 'سالم ماجد تركي العجاوني')
         ->set('password', 'Secretpass1')
         ->set('password_confirmation', 'Secretpass1')
+        ->set('two_factor_code', pendingTwoFactorCode('join:supervisor:'.$token))
         ->call('join')
         ->assertHasNoErrors();
 
@@ -72,6 +73,7 @@ test('دعوة ثانية لنفس الرقم تُبطل الرمز السابق
         ->set('full_name', 'سالم ماجد تركي العجاوني')
         ->set('password', 'Secretpass1')
         ->set('password_confirmation', 'Secretpass1')
+        ->set('two_factor_code', pendingTwoFactorCode('join:supervisor:'.$newToken))
         ->call('join')
         ->assertHasNoErrors();
 
@@ -150,6 +152,7 @@ test('الرقم في صفحة الانضمام يبقى رقم الدعوة', f
         ->set('full_name', 'سالم ماجد تركي العجاوني')
         ->set('password', 'Secretpass1')
         ->set('password_confirmation', 'Secretpass1')
+        ->set('two_factor_code', pendingTwoFactorCode('join:supervisor:'.$token))
         ->call('join')
         ->assertHasNoErrors();
 

@@ -40,9 +40,13 @@ class LoginUser
     /**
      * الخطوة الأولى: الجوال وكلمة المرور، دون تسجيل النجاح بعد.
      *
+     * دور اللوحة الذي لم يُعدّ التحقق بخطوتين لا يدخل بكلمة المرور وحدها، بل من
+     * رابط الإعداد (admin:reset-2fa). $forTwoFactorSetup لتلك الصفحة وحدها، فهي
+     * تتحقق من كلمة المرور بنفس القفل والسجل قبل إعداد التحقق.
+     *
      * @throws ValidationException
      */
-    public function verifyCredentials(string $phoneInput, string $password, string $ip): User
+    public function verifyCredentials(string $phoneInput, string $password, string $ip, bool $forTwoFactorSetup = false): User
     {
         $phone = SaudiPhone::normalize($phoneInput);
         $identifier = $phone ?? mb_substr(trim($phoneInput), 0, 32);
@@ -61,6 +65,12 @@ class LoginUser
             $this->recordAttempt($identifier, $ip, succeeded: false);
 
             throw ValidationException::withMessages(['phone' => __('auth.inactive')]);
+        }
+
+        if (! $forTwoFactorSetup && $user->hasPanelRole() && ! $user->hasTwoFactorEnabled()) {
+            $this->recordAttempt($identifier, $ip, succeeded: false);
+
+            throw ValidationException::withMessages(['phone' => __('auth.two_factor.setup_required')]);
         }
 
         return $user;

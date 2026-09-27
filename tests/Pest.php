@@ -6,6 +6,7 @@ use App\Models\Beneficiary;
 use App\Models\User;
 use App\Support\PageBlocks;
 use App\Support\SaudiIban;
+use App\Support\TwoFactorEnrollment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportTesting\Testable;
@@ -245,6 +246,17 @@ function assertNoBankData(Testable $component, Beneficiary $beneficiary): void
     foreach (bankSecretsOf($beneficiary) as $secret) {
         expect($payload)->not->toContain($secret);
     }
+}
+
+/**
+ * رمز TOTP الحالي لسر الإعداد المعلَّق في الجلسة (صفحات الدعوة ورابط admin:reset-2fa).
+ * السياق كما في enrollmentContext() لكل صفحة.
+ */
+function pendingTwoFactorCode(string $context): string
+{
+    $secret = TwoFactorEnrollment::pendingSecret($context);
+
+    return TwoFactorEnrollment::provider()->getCurrentCode(new User, $secret);
 }
 
 /**

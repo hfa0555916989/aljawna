@@ -7,9 +7,8 @@ namespace App\Livewire\Auth;
 use App\Actions\Auth\LoginUser;
 use App\Models\User;
 use App\Services\Audit;
+use App\Support\TwoFactorEnrollment;
 use App\Support\TwoFactorSession;
-use Filament\Auth\MultiFactor\App\AppAuthentication;
-use Filament\Facades\Filament;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -25,7 +24,8 @@ use Livewire\Component;
  *
  * أدوار اللوحة (مشرف أو مدير) تمرّ بخطوة ثانية إن فعّلت التحقق بخطوتين: رمز من
  * تطبيق المصادقة أو رمز استرداد، يتحقق منه مزوّد Filament نفسه (AppAuthentication).
- * ومن لم يفعّله بعد يدخل ثم يُلزَم بإعداده قبل أي صفحة في اللوحة (docs/DECISIONS.md).
+ * ومن لم يفعّله بعد لا يدخل بكلمة المرور وحدها، بل يُعدّه أولًا من رابط الدعوة أو
+ * رابط الإعداد من admin:reset-2fa (LoginUser، docs/DECISIONS.md).
  * بعد الدخول: أدوار اللوحة إلى اللوحة، والمبادر إلى /dashboard.
  */
 #[Title('تسجيل الدخول')]
@@ -98,7 +98,7 @@ class Login extends Component
             $field => ['required', 'string', 'max:64'],
         ]);
 
-        $provider = $this->appAuthentication();
+        $provider = TwoFactorEnrollment::provider();
         $ip = (string) request()->ip();
 
         try {
@@ -193,12 +193,5 @@ class Login extends Component
         }
 
         return $user;
-    }
-
-    private function appAuthentication(): AppAuthentication
-    {
-        $provider = Filament::getPanel('admin')->getMultiFactorAuthenticationProviders()['app'] ?? null;
-
-        return $provider instanceof AppAuthentication ? $provider : AppAuthentication::make()->recoverable();
     }
 }

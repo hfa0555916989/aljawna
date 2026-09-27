@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Auth;
 
+use App\Models\TwoFactorSetupLink;
 use App\Models\User;
 use App\Services\Audit;
 use App\Support\SaudiPhone;
@@ -13,17 +14,22 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * إعادة ضبط التحقق بخطوتين لمستخدم، عبر php artisan admin:reset-2fa فقط (docs/DECISIONS.md):
- * يحذف السر ورموز الاسترداد، وينهي كل جلساته، فيُلزَم بإعداد التحقق من جديد عند
- * دخوله التالي إن كان من أدوار اللوحة.
+ * يحذف السر ورموز الاسترداد، وينهي كل جلساته.
+ *
+ * لأدوار اللوحة يصدر رابط إعداد لمرة واحدة (32 بايت يُخزَّن مجزّأً، مدته من
+ * security.two_factor.setup_link_minutes، ويُبطل ما قبله): كلمة المرور وحدها لا
+ * تُدخل الحساب حتى يُعدّ صاحبه التحقق من هذا الرابط (T20).
  */
 class ResetTwoFactor
 {
     public const string AUDIT_ACTION = 'auth.two_factor_reset';
 
     /**
+     * @return array{user: User, setup_url: string|null, whatsapp_url: string|null}
+     *
      * @throws ValidationException
      */
-    public function handle(string $phoneInput): User
+    public function handle(string $phoneInput): array
     {
         $phone = SaudiPhone::normalize($phoneInput);
         $user = $phone === null ? null : User::query()->where('phone', $phone)->first();
@@ -33,8 +39,9 @@ class ResetTwoFactor
         }
 
         $wasEnabled = $user->hasTwoFactorEnabled();
+        $plainToken = $user->hasPanelRole() ? rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=') : null;
 
-        DB::transaction(function () use ($user, $wasEnabled): void {
+        DB::transaction(function () use ($user, $wasEnabled, $plainToken): void {
             $user->forceFill([
                 'app_authentication_secret' => null,
                 'app_authentication_recovery_codes' => null,
@@ -42,9 +49,35 @@ class ResetTwoFactor
 
             SessionEpoch::bump((int) $user->getKey());
 
-            Audit::record(self::AUDIT_ACTION, $user, ['issued_via' => 'cli', 'was_enabled' => $wasEnabled], null);
+            TwoFactorSetupLink::query()
+                ->where('user_id', $user->id)
+                ->whereNull('used_at')
+                ->where('expires_at', '>', now())
+                ->update(['expires_at' => now()]);
+
+            $link = $plainToken === null ? null : TwoFactorSetupLink::query()->create([
+                'user_id' => $user->id,
+                'token_hash' => hash('sha256', $plainToken),
+                'expires_at' => now()->addMinutes((int) config('security.two_factor.setup_link_minutes')),
+            ]);
+
+            Audit::record(self::AUDIT_ACTION, $user, array_filter([
+                'issued_via' => 'cli',
+                'was_enabled' => $wasEnabled,
+                'setup_link_id' => $link?->id,
+            ], fn (mixed $value): bool => $value !== null), null);
         });
 
-        return $user;
+        if ($plainToken === null) {
+            return ['user' => $user, 'setup_url' => null, 'whatsapp_url' => null];
+        }
+
+        $setupUrl = route('two-factor.setup', ['token' => $plainToken]);
+
+        return [
+            'user' => $user,
+            'setup_url' => $setupUrl,
+            'whatsapp_url' => 'https://wa.me/'.ltrim($user->phone, '+').'?text='.rawurlencode(__('admin.two_factor_reset.message', ['url' => $setupUrl])),
+        ];
     }
 }

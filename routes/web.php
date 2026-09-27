@@ -15,6 +15,7 @@ use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
 use App\Livewire\Auth\ResetAdminPassword;
 use App\Livewire\Auth\ResetPassword;
+use App\Livewire\Auth\SetUpTwoFactor;
 use App\Livewire\Beneficiaries\Index as BeneficiaryIndex;
 use App\Livewire\Beneficiaries\Show as BeneficiaryShow;
 use App\Livewire\Dashboard;
@@ -46,6 +47,11 @@ Route::livewire('/join/{token}', JoinSupervisor::class)
 Route::livewire('/admin-join/{token}', JoinAdmin::class)
     ->where('token', '[A-Za-z0-9\-_]+')
     ->name('admin.join');
+
+// إعداد التحقق بخطوتين من رابط php artisan admin:reset-2fa فقط، ولا رابط له في أي صفحة.
+Route::livewire('/two-factor/setup/{token}', SetUpTwoFactor::class)
+    ->where('token', '[A-Za-z0-9\-_]+')
+    ->name('two-factor.setup');
 
 Route::middleware('guest')->group(function (): void {
     Route::livewire('/register', Register::class)->name('register');

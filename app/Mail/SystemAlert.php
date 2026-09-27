@@ -12,6 +12,7 @@ use Illuminate\Mail\Mailables\Envelope;
  * تنبيه تشغيلي إلى مسؤول الدعم الفني (ALERT_EMAIL). الرسالة البريدية الوحيدة في
  * النظام، استثناءً محصورًا معتمدًا (docs/DECISIONS.md): بلا بيانات شخصية، ولا
  * تُرسل لأي مستخدم. لا تُوضع في الطوابير عمدًا (قد تكون هي المتوقفة).
+ * ولا تحمل رابط اللوحة، فلا يمرّ مسارها غير المتوقع (ADMIN_PATH) عبر مزوّد البريد (T20).
  */
 class SystemAlert extends Mailable
 {
@@ -36,7 +37,6 @@ class SystemAlert extends Mailable
                 'action' => __('health.alerts.'.$this->alert.'.action'),
                 'details' => $this->details,
                 'time' => now()->timezone('Asia/Riyadh')->format('Y-m-d H:i'),
-                'healthUrl' => url((string) config('admin.path').'/system-health'),
             ],
         );
     }

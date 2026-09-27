@@ -25,6 +25,42 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | رؤوس الأمان (docs/SPEC.md §12.1, §12.13)
+    |--------------------------------------------------------------------------
+    |
+    | hsts_max_age: مدة Strict-Transport-Security بالثواني على الطلبات الآمنة
+    | خارج البيئة المحلية (0 يعطّله). includeSubDomains اختياري لأنه يُلزم كل
+    | النطاقات الفرعية بـ HTTPS ويصعب التراجع عنه. preload لا يُضاف من التطبيق.
+    | csp_report_only: يرسل السياسة للمراقبة فقط دون فرضها، للطوارئ لا للدوام.
+    | القيمة في التطبيق تتقدّم على إعدادات "Edge network" في Laravel Cloud.
+    |
+    */
+
+    'headers' => [
+        'hsts_max_age' => (int) env('HSTS_MAX_AGE', 31536000),
+        'hsts_include_subdomains' => (bool) env('HSTS_INCLUDE_SUBDOMAINS', false),
+        'csp_report_only' => (bool) env('CSP_REPORT_ONLY', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | التحقق بخطوتين (docs/DECISIONS.md)
+    |--------------------------------------------------------------------------
+    |
+    | setup_link_minutes: صلاحية رابط الإعداد من php artisan admin:reset-2fa.
+    | recovery_regeneration_max_attempts: رموز TOTP خاطئة في صفحة تجديد رموز
+    | الاسترداد لكل حساب خلال recovery_regeneration_decay_minutes قبل إيقافها.
+    |
+    */
+
+    'two_factor' => [
+        'setup_link_minutes' => (int) env('TWO_FACTOR_SETUP_LINK_MINUTES', 30),
+        'recovery_regeneration_max_attempts' => 5,
+        'recovery_regeneration_decay_minutes' => 15,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | حدود التسجيل (docs/SPEC.md §12.3)
     |--------------------------------------------------------------------------
     |

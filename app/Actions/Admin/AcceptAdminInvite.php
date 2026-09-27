@@ -7,9 +7,11 @@ namespace App\Actions\Admin;
 use App\Models\AdminInvite;
 use App\Models\User;
 use App\Services\Audit;
+use App\Support\TwoFactorEnrollment;
 use App\UserRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use SensitiveParameter;
 
 /**
  * إكمال إنشاء حساب المدير من رابط الدعوة واستهلاك الرمز (docs/SPEC.md §2).
@@ -20,9 +22,14 @@ class AcceptAdminInvite
     public const AUDIT_ACTION = 'admin.joined';
 
     /**
+     * يُنشأ الحساب والتحقق بخطوتين مفعَّل فيه معًا، فلا يوجد حساب إداري بلا تحقق
+     * ولو لحظة (docs/DECISIONS.md). $twoFactorSecret سرٌّ أكّده المدعو برمز صحيح.
+     *
+     * @return array{user: User, recovery_codes: list<string>}
+     *
      * @throws ValidationException
      */
-    public function handle(string $plainToken, string $fullName, string $password, string $ip): User
+    public function handle(string $plainToken, string $fullName, string $password, string $ip, #[SensitiveParameter] string $twoFactorSecret): array
     {
         $invite = AdminInvite::query()
             ->where('token_hash', hash('sha256', $plainToken))
@@ -46,7 +53,7 @@ class AcceptAdminInvite
             ]);
         }
 
-        return DB::transaction(function () use ($invite, $fullName, $password, $ip): User {
+        return DB::transaction(function () use ($invite, $fullName, $password, $ip, $twoFactorSecret): array {
             $user = User::query()->create([
                 'full_name' => preg_replace('/\s+/u', ' ', trim($fullName)) ?? trim($fullName),
                 'phone' => $invite->phone,
@@ -57,11 +64,13 @@ class AcceptAdminInvite
                 'registered_ip' => $ip,
             ]);
 
+            $recoveryCodes = TwoFactorEnrollment::enable($user, $twoFactorSecret);
+
             $invite->forceFill(['accepted_at' => now()])->save();
 
-            Audit::record(self::AUDIT_ACTION, $user, ['invite_id' => $invite->id]);
+            Audit::record(self::AUDIT_ACTION, $user, ['invite_id' => $invite->id, 'two_factor_enabled' => true]);
 
-            return $user;
+            return ['user' => $user, 'recovery_codes' => $recoveryCodes];
         });
     }
 }

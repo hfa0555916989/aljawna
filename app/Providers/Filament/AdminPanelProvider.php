@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Filament\AvatarProviders\InitialAvatarProvider;
+use App\Filament\Pages\RecoveryCodes;
 use App\Http\Middleware\AuthenticateAdminPanel;
 use App\Http\Middleware\EnsureSessionEpoch;
 use App\Http\Middleware\EnsureTwoFactorAuthentication;
 use App\Models\SiteBranding;
 use App\Services\BrandingCss;
+use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -18,6 +20,7 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -39,11 +42,12 @@ class AdminPanelProvider extends PanelProvider
             // للجميع، والزائر يُعاد إليه (AuthenticateAdminPanel، docs/DECISIONS.md).
             ->path((string) config('admin.path'))
             ->viteTheme('resources/css/filament/admin/theme.css')
-            // TOTP إلزامي لأدوار اللوحة مع رموز استرداد. التحدي نفسه في /login، وإعداده
-            // عند أول دخول في صفحة Filament الإلزامية (EnsureTwoFactorAuthentication).
+            // مزوّد TOTP مع رموز استرداد. التحدي في /login، والإعداد قبل أي وصول من رابط
+            // الدعوة أو رابط admin:reset-2fa. الإلزام يفرضه EnsureTwoFactorAuthentication
+            // وEnsurePanelRoleTwoFactor بإنهاء الجلسة، فلا صفحة إعداد داخل اللوحة (T20).
             ->multiFactorAuthentication(
                 AppAuthentication::make()->recoverable(),
-                isRequired: true,
+                isRequired: false,
             )
             ->brandName(fn (): string => SiteBranding::current()->initiative_name)
             ->brandLogo(fn () => view('filament.admin.logo'))
@@ -79,6 +83,13 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
+            ])
+            // تجديد رموز الاسترداد لكل صاحب تحقق بخطوتين، بعد رمز TOTP حالي (T20).
+            ->userMenuItems([
+                Action::make('recoveryCodes')
+                    ->label(fn (): string => __('auth.two_factor.recovery_codes.regenerate_title'))
+                    ->url(fn (): string => RecoveryCodes::getUrl())
+                    ->icon(Heroicon::OutlinedKey),
             ])
             ->middleware([
                 EncryptCookies::class,
