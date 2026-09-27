@@ -64,6 +64,20 @@ return [
         'branding' => [
             'updated' => 'تعديل الهوية',
         ],
+        'content' => [
+            'base_design_restored' => 'استعادة التصميم الأساسي',
+        ],
+        'menu' => [
+            'revision_restored' => 'استرجاع نسخة القوائم',
+            'updated' => 'تعديل القوائم',
+        ],
+        'page' => [
+            'created' => 'إنشاء صفحة',
+            'draft_saved' => 'حفظ مسودة صفحة',
+            'published' => 'نشر صفحة',
+            'revision_restored' => 'استرجاع نسخة صفحة',
+            'unpublished' => 'إلغاء نشر صفحة',
+        ],
         'beneficiary' => [
             'approved' => 'اعتماد مستفيد',
             'bank_account_updated' => 'تعديل حساب بنكي لمستفيد',

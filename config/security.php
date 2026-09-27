@@ -105,6 +105,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | منشئ الصفحات (docs/SPEC.md FR-50..56, §12.13)
+    |--------------------------------------------------------------------------
+    |
+    | max_pages: أقصى عدد للصفحات كلها ومنها الرئيسية.
+    | max_blocks: أقصى عدد كتل في الصفحة الواحدة.
+    | max_kilobytes: أقصى حجم لمحتوى الصفحة (الكتل بصيغة JSON).
+    | max_menu_items: أقصى عدد عناصر في كل قائمة (الرأس أو التذييل).
+    | reserved_slugs: مسارات لا تأخذها صفحة، إضافة إلى أول مقطع من كل مسار مسجّل
+    | في النظام (App\Support\ReservedSlugs)، فلا تحجب صفحة مسارًا نظاميًا.
+    |
+    */
+
+    'pages' => [
+        'max_pages' => (int) env('PAGES_MAX_PAGES', 50),
+        'max_blocks' => (int) env('PAGES_MAX_BLOCKS', 30),
+        'max_kilobytes' => (int) env('PAGES_MAX_KILOBYTES', 100),
+        'max_menu_items' => (int) env('PAGES_MAX_MENU_ITEMS', 8),
+        'reserved_slugs' => [
+            'admin', 'login', 'logout', 'register', 'forgot-password', 'reset', 'beneficiaries',
+            'dashboard', 'my-transfers', 'transfers', 'receipts', 'join', 'contact', 'up',
+            'brand', 'storage', 'livewire', 'filament', 'build', 'sitemap', 'robots', 'favicon',
+            'api', 'home', 'index', 'page', 'pages', 'preview',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | استعادة كلمة المرور (docs/SPEC.md §4, §12.3)
     |--------------------------------------------------------------------------
     |

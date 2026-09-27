@@ -25,11 +25,6 @@ beforeEach(function (): void {
     Storage::fake('public');
 });
 
-function contentManager(): User
-{
-    return User::factory()->supervisor()->withPermissions(['content.manage'])->create();
-}
-
 test('من لا يملك content.manage يُرفض بـ 403', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['users.view'])->create();
 
