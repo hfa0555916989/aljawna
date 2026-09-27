@@ -9,6 +9,7 @@ use App\PermissionKey;
 use App\Policies\DeniesAbilitiesToEveryone;
 use App\Policies\ReservesAbilitiesToPolicy;
 use App\Support\SessionEpoch;
+use App\Support\TwoFactorSession;
 use App\UserRole;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Carbon;
@@ -44,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(Login::class, function (Login $event): void {
             if ($event->user instanceof User) {
                 SessionEpoch::bindToSession($event->user);
+                TwoFactorSession::markOnLogin($event->user);
             }
         });
     }

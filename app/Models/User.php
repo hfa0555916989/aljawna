@@ -6,6 +6,10 @@ namespace App\Models;
 
 use App\UserRole;
 use Database\Factories\UserFactory;
+use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthentication;
+use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthenticationRecovery;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
 use Filament\Pages\Dashboard;
@@ -23,10 +27,10 @@ use Spatie\Permission\Traits\HasPermissions;
 
 #[Fillable(['full_name', 'phone', 'password', 'role', 'is_active', 'show_contact', 'registered_ip', 'last_login_ip', 'last_login_at'])]
 #[Hidden(['password', 'remember_token', 'session_epoch'])]
-class User extends Authenticatable implements FilamentUser, HasName
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasName
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasPermissions, Notifiable;
+    use HasFactory, HasPermissions, InteractsWithAppAuthentication, InteractsWithAppAuthenticationRecovery, Notifiable;
 
     /**
      * لوحة الإدارة للمشرف والمدير الفعّالين فقط، وتُفحص في كل طلب (docs/SPEC.md §2).
@@ -47,8 +51,24 @@ class User extends Authenticatable implements FilamentUser, HasName
     }
 
     /**
+     * هل فعّل المستخدم التحقق بخطوتين (TOTP)؟ إلزامي لأدوار اللوحة (docs/DECISIONS.md).
+     */
+    public function hasTwoFactorEnabled(): bool
+    {
+        return filled($this->getAppAuthenticationSecret());
+    }
+
+    /**
+     * الاسم الظاهر في تطبيق المصادقة: رقم الدخول، فلا بريد في النظام (docs/SPEC.md §1).
+     */
+    public function getAppAuthenticationHolderName(): string
+    {
+        return $this->phone;
+    }
+
+    /**
      * وجهة المستخدم بعد الدخول أو عند زيارة صفحة الدخول بجلسة قائمة:
-     * المشرف والمدير إلى /admin، والمبادر إلى /dashboard.
+     * المشرف والمدير إلى لوحة الإدارة (config admin.path)، والمبادر إلى /dashboard.
      */
     public function homeUrl(): string
     {

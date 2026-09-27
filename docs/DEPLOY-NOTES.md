@@ -4,6 +4,10 @@
 > فقط، ولا تدخل المستودع أبدًا (docs/SPEC.md §11). راجع `.env.example` للقيم
 > الافتراضية عند التطوير المحلي.
 
+الاستضافة الدائمة على **Laravel Cloud** (docs/DECISIONS.md). قاعدة PostgreSQL
+وذاكرة Valkey/Redis وتخزين الكائنات موارد مُدارة تُربط بالبيئة، فيحقن Laravel
+Cloud متغيرات اتصالها تلقائيًا؛ وأي متغير مخصّص تكتبه يتقدّم عليها.
+
 ## متغيرات البيئة المطلوبة
 
 ### التطبيق وقاعدة البيانات
@@ -14,6 +18,7 @@
 | `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | الاتصال بـ PostgreSQL |
 | `DB_SSLMODE` | `require` أو `verify-full` مع قاعدة Postgres مُدارة تدعم TLS (`prefer` محليًا) |
 | `ADMIN_NAME`, `ADMIN_PHONE`, `ADMIN_PASSWORD` | المدير الأول (`database/seeders/AdminUserSeeder`)، مرة واحدة فقط عند التثبيت |
+| `ADMIN_PATH` | مسار لوحة الإدارة. ضع قيمة لا يعرفها غيرك (حروف لاتينية صغيرة وأرقام وشرطات)؛ الفارغ يعود إلى الافتراضي في `config/admin.php`. لا يوجد `/admin` |
 
 ### الكاش والجلسات والطوابير (Redis أو Valkey)
 
@@ -41,44 +46,89 @@ Redis (Valkey ومنه) تعمل دون تغيير في الشيفرة.
 فحص Policy عند كل طلب، بصرف النظر عن نوع القرص. صور الهوية والصفحات على قرص
 عام لأنها تُعرض للجميع.
 
-### الكابتشا والبريد
+على Laravel Cloud نظام الملفات مؤقت ولا يُشارَك بين النسخ، فيُضبط القرصان على
+`s3` مع bucketين من Laravel Cloud Object Storage: خاص للإيصالات، وعام للصور.
+
+### الكابتشا والبريد وتنبيهات التشغيل
 
 | المتغير | الغرض |
 |---|---|
 | `TURNSTILE_ENABLED`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | مفاتيح Cloudflare Turnstile الحقيقية في الإنتاج (المفاتيح في `.env.example` تجريبية فقط) |
-| `MAIL_MAILER` | يبقى `log`؛ لا بريد إلكتروني في هذا النظام (docs/SPEC.md §1) |
+| `ALERT_EMAIL` | العنوان الوحيد الذي تصله تنبيهات التشغيل (المسؤول عن الدعم الفني). فارغ = لا تنبيهات |
+| `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | ناقل حقيقي (مثل `smtp`) لتنبيهات التشغيل فقط؛ لا بريد لأي مستخدم (استثناء محصور، docs/DECISIONS.md). مع `log` تبقى التنبيهات في السجل |
+| `ALERT_COOLDOWN_MINUTES` | أقل فاصل لتكرار نفس التنبيه ما دامت المشكلة قائمة (60) |
+| `ALERT_ERROR_SPIKE_THRESHOLD`, `ALERT_ERROR_SPIKE_WINDOW_MINUTES` | عدد الأخطاء خلال النافذة الذي يُعد ارتفاعًا مفاجئًا (50 خلال 15 دقيقة) |
+| `MONITOR_SCHEDULER_STALE_MINUTES`, `MONITOR_QUEUE_STALE_MINUTES` | عمر آخر نبض قبل اعتبار المجدول أو عامل الطوابير متوقفًا (5) |
+| `MONITOR_WATCHDOG_SECONDS` | أقل فاصل لفحص المراقبة من طلبات الويب، لاكتشاف توقف المجدول نفسه (300) |
+| `RECEIPTS_BACKUP_ENABLED`, `RECEIPTS_BACKUP_MAX_AGE_HOURS` | يبقى `false` ("غير مُعدّ") حتى T21، ثم يُنبَّه عند فشل آخر نسخة أو تأخرها (26 ساعة) |
 
 ### حدود الحماية والمنشئ
 
 انظر `config/security.php` و`.env.example` لكل متغيرات `LOGIN_*`،
 `REGISTER_MAX_PER_IP_PER_HOUR`، `RECOVERY_*`، `SUSPICIOUS_*`، `PAGES_*`،
 `TRANSFERS_DAILY_LIMIT`، `BANK_CHANGE_ALERT_DAYS`، `STATS_CACHE_SECONDS`.
-قيمها الافتراضية صالحة للإنتاج، وتُعدَّل من `/admin/settings` أو `.env` عند الحاجة.
+قيمها الافتراضية صالحة للإنتاج، وتُعدَّل من `.env` عند الحاجة.
 
-## أوامر ما بعد النشر
+## البناء والنشر على Laravel Cloud
+
+أمر البناء (Build command):
 
 ```bash
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force
-php artisan db:seed --force
-php artisan storage:link
+npm ci && npm run build
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-npm ci && npm run build
 ```
+
+أمر النشر (Deploy command):
+
+```bash
+php artisan migrate --force
+```
+
+- `php artisan db:seed --force` مرة واحدة فقط عند التثبيت الأول (المدير الأول والصلاحيات)، من تبويب Commands في Laravel Cloud أو `cloud command:run`.
+- لا `storage:link` ولا `queue:restart` في أوامر النشر: Laravel Cloud يدير العمّال، وتغييرات الملفات أثناء النشر لا تبقى.
+- بعد تغيير أي متغير بيئة أو مورد مربوط يُعاد النشر ليسري.
+
+## بعد أول نشر (قائمة تحقق)
+
+1. **المجدول:** فعّله على عنقود التطبيق (Scheduler) ليشغّل `php artisan schedule:run` كل دقيقة. مهام المراقبة تستخدم `onOneServer` فلا تتكرر مع تعدد النسخ.
+2. **عامل الطوابير:** عامل (Queue worker أو طوابير مُدارة) على اتصال `redis`.
+3. **الدخول:** `/login` للجميع. أول دخول لأي مدير أو مشرف يُلزمه بإعداد التحقق بخطوتين (TOTP) في تطبيق مصادقة، ويعرض رموز الاسترداد مرة واحدة: احفظها خارج الجوال.
+4. **صحة النظام:** افتح `{ADMIN_PATH}/system-health` كمدير، وتأكد أن المجدول وعامل الطوابير "سليم" خلال دقيقتين، وأن النسخ الاحتياطي "غير مُعدّ" حتى T21.
+5. **التنبيهات:** اضبط `ALERT_EMAIL` و`MAIL_*` ثم أعد النشر. للتجربة: `php artisan monitor:check` (لا يرسل شيئًا ما دام النظام سليمًا).
 
 ### إنشاء حساب مدير إضافي
 
 لا واجهة ويب لدعوة مدير جديد (بخلاف دعوة المشرفين من لوحة الإدارة). يتولّى ذلك
-من يملك وصولًا إلى الخادم عبر أمر artisan:
+من يملك وصولًا إلى بيئة Laravel Cloud عبر أمر artisan (تبويب Commands، أو
+`cloud command:run {environment} --cmd='php artisan admin:invite +9665XXXXXXXX' -n`):
 
 ```bash
 php artisan admin:invite +9665XXXXXXXX
 ```
 
 يطبع الأمر رابط الدعوة ورابط `wa.me` جاهزًا لإرساله للمدعو يدويًا. الرابط صالح
-48 ساعة ولمرة واحدة، ويُسجَّل الإصدار والقبول في `audit_logs`.
+48 ساعة ولمرة واحدة، ويُسجَّل الإصدار والقبول في `audit_logs`. عند أول دخول يُلزَم
+المدير الجديد بإعداد التحقق بخطوتين قبل أي صفحة في اللوحة.
+
+### أوامر الطوارئ (سطر الأوامر فقط)
+
+لا زر في الويب يشغّل أوامر على الخادم ولا طرفية في اللوحة. في الطوارئ، من بيئة
+Laravel Cloud فقط:
+
+```bash
+# مدير نسي كلمة مروره: رابط تعيين لمرة واحدة، صالح 30 دقيقة، مع رابط wa.me جاهز.
+php artisan admin:reset-link +9665XXXXXXXX
+
+# مستخدم فقد جهاز المصادقة ورموز الاسترداد: يحذف إعداد التحقق وينهي جلساته،
+# فيُلزَم بإعداده من جديد عند دخوله التالي. يطلب تأكيدًا ما لم يُمرَّر --force.
+php artisan admin:reset-2fa +9665XXXXXXXX --force
+```
+
+كلاهما يُسجَّل في `audit_logs`. تعيين كلمة المرور لا يلغي التحقق بخطوتين؛ من فقد
+الاثنين يحتاج الأمرين معًا.
 
 ### بيانات تجريبية (بيئة تطوير أو تجربة فقط)
 
@@ -91,9 +141,10 @@ php artisan db:seed --class=DemoSeeder
 
 ## الجدولة (Scheduler)
 
-يُضاف مدخل cron واحد يشغّل `php artisan schedule:run` كل دقيقة، وفق ما يقرّره
-`routes/console.php` من مهام مجدولة (مثل إغلاق طلبات الاستعادة المنتهية
-`recovery:expire` كل ساعة).
+يُفعَّل المجدول في Laravel Cloud فيشغّل `php artisan schedule:run` كل دقيقة، وفق
+ما يقرّره `routes/console.php` من مهام مجدولة: إغلاق طلبات الاستعادة المنتهية
+`recovery:expire` كل ساعة، ونبض المراقبة `monitor:heartbeat` كل دقيقة، وفحصها
+وتنبيهاتها `monitor:check` كل 5 دقائق.
 
 ## قابلية النقل
 

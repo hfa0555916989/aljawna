@@ -35,7 +35,7 @@ test('المدير يرى تنبيهًا ظاهرًا بالتغيير ومن غ
     changeIban($this->manager, $this->beneficiary, $this->newIban);
 
     $this->actingAs($this->admin)
-        ->get('/admin')
+        ->get(adminPath())
         ->assertOk()
         ->assertSee('تنبيه: تغيّرت حسابات بنكية لمستفيدين')
         ->assertSee('ماجد تركي نايف الشهري غيّر الحساب البنكي لـ «سالم ماجد تركي العجاوني»')
@@ -45,7 +45,7 @@ test('المدير يرى تنبيهًا ظاهرًا بالتغيير ومن غ
 
 test('لا تنبيه للمدير دون تغييرات حديثة', function (): void {
     $this->actingAs($this->admin)
-        ->get('/admin')
+        ->get(adminPath())
         ->assertOk()
         ->assertDontSee('تنبيه: تغيّرت حسابات بنكية لمستفيدين');
 });
@@ -54,7 +54,7 @@ test('التنبيه للمدير فقط وليس لمن يملك beneficiaries.
     changeIban($this->manager, $this->beneficiary, $this->newIban);
 
     $this->actingAs($this->manager)
-        ->get('/admin')
+        ->get(adminPath())
         ->assertOk()
         ->assertDontSee('تنبيه: تغيّرت حسابات بنكية لمستفيدين');
 });
@@ -65,6 +65,6 @@ test('التغيير الأقدم من مدة التنبيه لا يظهر', fun
     $this->travelTo(now()->subDays(15), fn () => changeIban($this->manager, $this->beneficiary, $this->newIban));
 
     $this->actingAs($this->admin)
-        ->get('/admin')
+        ->get(adminPath())
         ->assertDontSee('تنبيه: تغيّرت حسابات بنكية لمستفيدين');
 });

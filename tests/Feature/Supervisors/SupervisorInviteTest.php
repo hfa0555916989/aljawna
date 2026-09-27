@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use App\Actions\Supervisors\InviteSupervisor;
 use App\Actions\Supervisors\SetSupervisorActive;
-use App\Filament\Pages\Auth\Login;
 use App\Filament\Resources\Supervisors\Pages\ListSupervisors;
+use App\Livewire\Auth\Login;
 use App\Livewire\JoinSupervisor;
 use App\Models\SupervisorInvite;
 use App\Models\User;
@@ -117,21 +117,20 @@ test('مشرف لا يدعو صلاحية لا يملكها', function (): void 
 test('تعطيل المشرف يمنعه من الدخول فورًا', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['users.view'])->create();
 
-    $this->actingAs($supervisor)->get('/admin')->assertOk();
+    $this->actingAs($supervisor)->get(adminPath())->assertOk();
 
     app(SetSupervisorActive::class)->handle($this->admin, $supervisor, false);
 
-    $this->actingAs($supervisor->fresh())->get('/admin')->assertForbidden();
+    $this->actingAs($supervisor->fresh())->get(adminPath())->assertNotFound();
 
     auth()->logout();
 
     Livewire::test(Login::class)
-        ->fillForm([
-            'phone' => $supervisor->phone,
-            'password' => 'password',
-        ])
-        ->call('authenticate')
-        ->assertHasFormErrors(['phone']);
+        ->set('phone', $supervisor->phone)
+        ->set('password', 'password')
+        ->call('login')
+        ->assertHasErrors(['phone'])
+        ->assertSet('challengedUser', null);
 
     expect(auth()->check())->toBeFalse();
 });
@@ -139,7 +138,7 @@ test('تعطيل المشرف يمنعه من الدخول فورًا', function
 test('من لا يملك supervisors.manage لا يفتح إدارة المشرفين', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['users.view'])->create();
 
-    $this->actingAs($supervisor)->get('/admin/supervisors')->assertForbidden();
+    $this->actingAs($supervisor)->get(adminPath('supervisors'))->assertForbidden();
 });
 
 test('الرقم في صفحة الانضمام يبقى رقم الدعوة', function (): void {

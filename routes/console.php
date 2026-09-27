@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('recovery:expire')->hourly();
+
+// مراقبة التشغيل (docs/DECISIONS.md): نبض المجدول والطوابير كل دقيقة، والفحص والتنبيه كل 5 دقائق.
+Schedule::command('monitor:heartbeat')->everyMinute()->withoutOverlapping()->onOneServer();
+Schedule::command('monitor:check')->everyFiveMinutes()->withoutOverlapping()->onOneServer();

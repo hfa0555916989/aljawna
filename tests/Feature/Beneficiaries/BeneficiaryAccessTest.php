@@ -28,9 +28,9 @@ beforeEach(function (): void {
 });
 
 dataset('beneficiary pages', [
-    'القائمة' => fn (): string => '/admin/beneficiaries',
-    'التسجيل' => fn (): string => '/admin/beneficiaries/create',
-    'التعديل' => fn (): string => '/admin/beneficiaries/'.Beneficiary::factory()->create()->getKey().'/edit',
+    'القائمة' => fn (): string => adminPath('beneficiaries'),
+    'التسجيل' => fn (): string => adminPath('beneficiaries/create'),
+    'التعديل' => fn (): string => adminPath('beneficiaries/').Beneficiary::factory()->create()->getKey().'/edit',
 ]);
 
 test('المدير يفتح صفحات المستفيدين ويرى عنصرها في التنقل', function (string $url): void {
@@ -54,21 +54,21 @@ test('المشرف بلا beneficiaries.manage يُرفض بـ 403 حتى مع �
 
 test('المشرف بلا beneficiaries.manage لا يرى عنصر المستفيدين في التنقل', function (): void {
     $this->actingAs(User::factory()->supervisor()->withPermissions(['stats.view'])->create())
-        ->get('/admin')
+        ->get(adminPath())
         ->assertOk()
-        ->assertDontSee('/admin/beneficiaries', false);
+        ->assertDontSee(adminPath('beneficiaries'), false);
 });
 
-test('المدير المعطَّل يُرفض بـ 403', function (): void {
+test('المدير المعطَّل يحصل على 404', function (): void {
     $this->actingAs(User::factory()->admin()->inactive()->create())
-        ->get('/admin/beneficiaries')
-        ->assertForbidden();
+        ->get(adminPath('beneficiaries'))
+        ->assertNotFound();
 });
 
-test('المبادر لا يصل إلى إدارة المستفيدين', function (): void {
+test('المبادر لا يصل إلى إدارة المستفيدين (404)', function (): void {
     $this->actingAs(User::factory()->create())
-        ->get('/admin/beneficiaries')
-        ->assertRedirect(route('dashboard'));
+        ->get(adminPath('beneficiaries'))
+        ->assertNotFound();
 });
 
 test('إجراءات المستفيدين ترفض من لا يملك الصلاحية على الخادم مباشرة', function (Closure $attempt): void {

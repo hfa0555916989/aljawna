@@ -18,7 +18,7 @@ use Livewire\Livewire;
 |--------------------------------------------------------------------------
 */
 
-const BRANDING_PAGE = '/admin/content/branding';
+const BRANDING_PAGE = 'content/branding';
 
 beforeEach(function (): void {
     $this->seed(PermissionSeeder::class);
@@ -28,21 +28,21 @@ beforeEach(function (): void {
 test('من لا يملك content.manage يُرفض بـ 403', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['users.view'])->create();
 
-    $this->actingAs($supervisor)->get(BRANDING_PAGE)->assertForbidden();
+    $this->actingAs($supervisor)->get(adminPath(BRANDING_PAGE))->assertForbidden();
 
     expect(Branding::canAccess())->toBeFalse();
 });
 
 test('الممنوح content.manage يفتح الصفحة', function (): void {
-    $this->actingAs(contentManager())->get(BRANDING_PAGE)->assertOk()->assertSee(__('branding.navigation'));
+    $this->actingAs(contentManager())->get(adminPath(BRANDING_PAGE))->assertOk()->assertSee(__('branding.navigation'));
 });
 
 test('المدير يفتح الصفحة ضمنيًا', function (): void {
-    $this->actingAs(User::factory()->admin()->create())->get(BRANDING_PAGE)->assertOk();
+    $this->actingAs(User::factory()->admin()->create())->get(adminPath(BRANDING_PAGE))->assertOk();
 });
 
-test('المبادر لا يصل إلى الصفحة', function (): void {
-    $this->actingAs(User::factory()->create())->get(BRANDING_PAGE)->assertRedirect(route('dashboard'));
+test('المبادر لا يصل إلى الصفحة (404)', function (): void {
+    $this->actingAs(User::factory()->create())->get(adminPath(BRANDING_PAGE))->assertNotFound();
 });
 
 test('حفظ الاسم واللونين الصحيحين ينجح ويُسجَّل في التدقيق ويُبطل كاش CSS', function (): void {

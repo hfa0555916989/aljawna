@@ -12,6 +12,7 @@ use App\Models\RecoveryLog as RecoveryLogEntry;
 use App\Models\User;
 use App\PasswordResetStatus;
 use App\RecoveryLogAction;
+use App\Support\TwoFactorSession;
 use Database\Seeders\PermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -133,11 +134,11 @@ test('سجل الاستعادة للمدير فقط', function (): void {
     app(ChangeLoginPhone::class)->handle($supervisor, phoneChangeRequest($owner, $supervisor), 'سبب ظاهر في السجل', '0511200052', '0511200052');
 
     $this->actingAs($supervisor)
-        ->get('/admin/recovery/log')
+        ->get(adminPath('recovery/log'))
         ->assertForbidden();
 
     $this->actingAs(User::factory()->admin()->create())
-        ->get('/admin/recovery/log')
+        ->get(adminPath('recovery/log'))
         ->assertOk()
         ->assertSee('سبب ظاهر في السجل')
         ->assertSee('تعديل رقم الدخول')
@@ -192,19 +193,20 @@ test('المدير يغيّر رقم دخول مشرف أو مدير آخر بس
     'مشرف' => fn () => User::factory()->supervisor()->withPermissions(['recovery.handle'])->create(),
 ]);
 
-test('جلسة مشرف أو مدير في /admin تُقطع فورًا بعد تغيير رقمه', function (User $owner): void {
+test('جلسة مشرف أو مدير في لوحة الإدارة تُقطع فورًا بعد تغيير رقمه', function (User $owner): void {
     $admin = User::factory()->admin()->create();
     $request = phoneChangeRequest($owner, $admin);
 
     Auth::login($owner);
-    $this->get('/admin')->assertOk();
+    TwoFactorSession::markPassed();
+    $this->get(adminPath())->assertOk();
     $this->app['auth']->forgetGuards();
-    $this->get('/admin')->assertOk();
+    $this->get(adminPath())->assertOk();
 
     app(ChangeLoginPhone::class)->handle($admin, $request, 'تحقق المدير من هويته', '0511200082', '0511200082');
     $this->app['auth']->forgetGuards();
 
-    $this->get('/admin')->assertRedirect(route('login'));
+    $this->get(adminPath())->assertRedirect(route('login'));
     $this->assertGuest();
 })->with([
     'مشرف' => fn () => User::factory()->supervisor()->withPermissions(['recovery.handle'])->create(['phone' => '+966511200081']),
@@ -259,8 +261,8 @@ test('سجل الاستعادة مرقّم الصفحات', function (): void {
     }
 
     $admin = User::factory()->admin()->create();
-    $firstPage = $this->actingAs($admin)->get('/admin/recovery/log')->assertOk()->getContent() ?: '';
-    $secondPage = $this->actingAs($admin)->get('/admin/recovery/log?page=2')->assertOk()->getContent() ?: '';
+    $firstPage = $this->actingAs($admin)->get(adminPath('recovery/log'))->assertOk()->getContent() ?: '';
+    $secondPage = $this->actingAs($admin)->get(adminPath('recovery/log?page=2'))->assertOk()->getContent() ?: '';
 
     expect(RecoveryLog::PER_PAGE)->toBeGreaterThanOrEqual(10)->toBeLessThanOrEqual(20)
         ->and(substr_count($firstPage, 'data-recovery-log-entry'))->toBe(RecoveryLog::PER_PAGE)

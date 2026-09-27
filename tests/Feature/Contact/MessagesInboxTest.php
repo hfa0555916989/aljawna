@@ -16,7 +16,7 @@ use Livewire\Livewire;
 | القراءة والوسم "مقروءة" بصلاحية messages.view فقط.
 */
 
-const MESSAGES_PAGE = '/admin/messages';
+const MESSAGES_PAGE = 'messages';
 
 beforeEach(function (): void {
     $this->seed(PermissionSeeder::class);
@@ -31,31 +31,31 @@ function messagesOfficer(): User
 test('من لا يملك messages.view يُرفض بـ 403', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['beneficiaries.manage'])->create();
 
-    $this->actingAs($supervisor)->get(MESSAGES_PAGE)->assertForbidden();
+    $this->actingAs($supervisor)->get(adminPath(MESSAGES_PAGE))->assertForbidden();
 
     expect(Messages::canAccess())->toBeFalse();
 });
 
-test('المشرف المعطَّل يُرفض بـ 403 ولو ملك messages.view', function (): void {
+test('المشرف المعطَّل يحصل على 404 ولو ملك messages.view', function (): void {
     $supervisor = User::factory()->supervisor()->inactive()->withPermissions(['messages.view'])->create();
 
-    $this->actingAs($supervisor)->get(MESSAGES_PAGE)->assertForbidden();
+    $this->actingAs($supervisor)->get(adminPath(MESSAGES_PAGE))->assertNotFound();
 });
 
 test('المشرف الممنوح messages.view يفتح الصندوق', function (): void {
-    $this->actingAs(messagesOfficer())->get(MESSAGES_PAGE)->assertOk()->assertSee(__('contact.inbox.navigation'));
+    $this->actingAs(messagesOfficer())->get(adminPath(MESSAGES_PAGE))->assertOk()->assertSee(__('contact.inbox.navigation'));
 });
 
 test('المدير يفتح الصندوق ضمنيًا', function (): void {
-    $this->actingAs(User::factory()->admin()->create())->get(MESSAGES_PAGE)->assertOk();
+    $this->actingAs(User::factory()->admin()->create())->get(adminPath(MESSAGES_PAGE))->assertOk();
 });
 
-test('المبادر لا يصل إلى الصندوق ويُحوَّل إلى لوحته', function (): void {
-    $this->actingAs(User::factory()->create())->get(MESSAGES_PAGE)->assertRedirect(route('dashboard'));
+test('المبادر لا يصل إلى الصندوق (404)', function (): void {
+    $this->actingAs(User::factory()->create())->get(adminPath(MESSAGES_PAGE))->assertNotFound();
 });
 
 test('زائر غير مسجّل يُحوَّل إلى الدخول', function (): void {
-    $this->get(MESSAGES_PAGE)->assertRedirect();
+    $this->get(adminPath(MESSAGES_PAGE))->assertRedirect(route('login'));
 });
 
 test('من يملك messages.view يرى الرسائل بترتيب الأحدث أولًا', function (): void {
@@ -63,7 +63,7 @@ test('من يملك messages.view يرى الرسائل بترتيب الأحد�
     ContactMessage::factory()->read()->create(['name' => 'سالم', 'phone' => '+966512345679', 'body' => 'رسالة ثانية']);
 
     $this->actingAs(messagesOfficer())
-        ->get(MESSAGES_PAGE)
+        ->get(adminPath(MESSAGES_PAGE))
         ->assertOk()
         ->assertSeeText('أحمد')
         ->assertSeeText('سالم')
@@ -74,7 +74,7 @@ test('من يملك messages.view يرى الرسائل بترتيب الأحد�
 
 test('لا رسائل بعد يظهر نص فارغ', function (): void {
     $this->actingAs(messagesOfficer())
-        ->get(MESSAGES_PAGE)
+        ->get(adminPath(MESSAGES_PAGE))
         ->assertOk()
         ->assertSeeText(__('contact.inbox.empty'));
 });

@@ -215,7 +215,7 @@ test('زر الاستعادة في اللوحة يطلب تأكيدًا ويست
 test('زر الاستعادة مخفي عن مشرف بلا content.manage والوصول إلى صفحة القائمة 403', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['beneficiaries.manage'])->create();
 
-    $this->actingAs($supervisor)->get('/admin/content/pages')->assertForbidden();
+    $this->actingAs($supervisor)->get(adminPath('content/pages'))->assertForbidden();
 });
 
 test('نسخة الأساس للرئيسية لا تُعدَّل ولا تُحذف ولو بـ SQL مباشر', function (string $sql): void {

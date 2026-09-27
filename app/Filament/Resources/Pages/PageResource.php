@@ -19,7 +19,7 @@ use Filament\Tables\Table;
 use Illuminate\Validation\ValidationException;
 
 /**
- * منشئ الصفحات /admin/content/pages (docs/SPEC.md FR-50..56). الوصول عبر PagePolicy
+ * منشئ الصفحات {ADMIN_PATH}/content/pages (docs/SPEC.md FR-50..56). الوصول عبر PagePolicy
  * بصلاحية content.manage، ولا حذف لأي صفحة. كل حفظ ونشر واسترجاع عبر App\Actions\Content.
  */
 class PageResource extends Resource

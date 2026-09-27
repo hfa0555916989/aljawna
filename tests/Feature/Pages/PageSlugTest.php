@@ -49,7 +49,7 @@ test('كل مسار في قائمة المحجوزات بالإعدادات يُ
 test('أول مقطع من كل مسار مسجّل في النظام محجوز، ومنه اللوحة وlivewire', function (): void {
     $segments = ReservedSlugs::routeSegments();
 
-    expect($segments)->toContain('admin', 'up', 'logout', 'transfers', 'receipts', 'sitemap', 'brand')
+    expect($segments)->toContain(config('admin.path'), 'up', 'logout', 'transfers', 'receipts', 'sitemap', 'brand')
         ->and(collect($segments)->contains(fn (string $segment): bool => str_starts_with($segment, 'livewire')))->toBeTrue();
 
     foreach ($segments as $segment) {
@@ -57,6 +57,20 @@ test('أول مقطع من كل مسار مسجّل في النظام محجوز
             expect(slugErrors($segment))->toContain(__('pages.validation.slug_reserved'));
         }
     }
+});
+
+test('مسار لوحة الإدارة من ADMIN_PATH محجوز تلقائيًا، ولو تغيّر بعد تسجيل المسارات', function (): void {
+    expect(slugErrors((string) config('admin.path')))->toContain(__('pages.validation.slug_reserved'));
+
+    config(['admin.path' => 'my-panel-x1']);
+
+    expect(ReservedSlugs::isReserved('my-panel-x1'))->toBeTrue()
+        ->and(slugErrors('my-panel-x1'))->toContain(__('pages.validation.slug_reserved'));
+});
+
+test('مسار لوحة الإدارة الافتراضي ليس /admin المتوقَّع', function (): void {
+    expect(config('admin.path'))->not->toBe('admin')
+        ->and(ReservedSlugs::isValidFormat((string) config('admin.path')))->toBeTrue();
 });
 
 test('المسار المحجوز يُرفض ولو كُتب بحروف كبيرة أو بمسافات', function (string $slug): void {

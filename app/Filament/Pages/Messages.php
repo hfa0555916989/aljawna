@@ -14,7 +14,7 @@ use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
 
 /**
- * صندوق رسائل "اتصل بنا" /admin/messages بصلاحية messages.view فقط (docs/SPEC.md
+ * صندوق رسائل "اتصل بنا" {ADMIN_PATH}/messages بصلاحية messages.view فقط (docs/SPEC.md
  * §9 contact_messages، FR-55). للقراءة والوسم "مقروءة" فقط، بلا تعديل ولا حذف.
  */
 class Messages extends PermissionPage
