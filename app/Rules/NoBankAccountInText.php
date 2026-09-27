@@ -15,6 +15,8 @@ use Illuminate\Translation\PotentiallyTranslatedString;
  */
 class NoBankAccountInText implements ValidationRule
 {
+    public function __construct(private readonly string $messageKey = 'beneficiaries.validation.no_iban_in_text') {}
+
     /**
      * Run the validation rule.
      *
@@ -23,7 +25,7 @@ class NoBankAccountInText implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (is_string($value) && preg_match('/SA\d{22}/', SaudiIban::normalize($value)) === 1) {
-            $fail('beneficiaries.validation.no_iban_in_text')->translate();
+            $fail($this->messageKey)->translate();
         }
     }
 }
