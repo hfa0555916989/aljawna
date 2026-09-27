@@ -101,13 +101,13 @@ test('الاستعادة تعيد الرئيسية والقائمتين إلى �
     $this->get('/')->assertSee('رئيسية معدّلة')->assertSee('رابط معدّل');
 
     $home = app(BaseDesign::class)->home();
-    $pageRevisionsBefore = $home->revisions()->pluck('id')->all();
-    $menuRevisionsBefore = MenuRevision::query()->pluck('id')->all();
+    $pageRevisionsBefore = $home->revisions()->orderBy('id')->pluck('id')->all();
+    $menuRevisionsBefore = MenuRevision::query()->orderBy('id')->pluck('id')->all();
 
     $result = app(RestoreBaseDesign::class)->handle($actor);
 
-    expect($home->revisions()->pluck('id')->all())->toBe([...$pageRevisionsBefore, $result['page_revision']->id])
-        ->and(MenuRevision::query()->pluck('id')->all())->toBe([...$menuRevisionsBefore, $result['menu_revision']->id])
+    expect($home->revisions()->orderBy('id')->pluck('id')->all())->toBe([...$pageRevisionsBefore, $result['page_revision']->id])
+        ->and(MenuRevision::query()->orderBy('id')->pluck('id')->all())->toBe([...$menuRevisionsBefore, $result['menu_revision']->id])
         ->and($result['page_revision']->is_baseline)->toBeFalse()
         ->and($result['page_revision']->author_id)->toBe($actor->id)
         ->and($home->refresh()->blocks)->toEqual($home->baselineRevision()->sole()->blocks);
@@ -169,7 +169,7 @@ test('من لا يملك content.manage لا يستعيد التصميم الأ�
 
     $this->get('/')->assertSee('رئيسية معدّلة');
 })->with([
-    'مشرف بلا الصلاحية' => fn (): User => User::factory()->supervisor()->withPermissions(['beneficiaries.view', 'settings.manage'])->create(),
+    'مشرف بلا الصلاحية' => fn (): User => User::factory()->supervisor()->withPermissions(['beneficiaries.manage', 'settings.manage'])->create(),
     'مبادر' => fn (): User => User::factory()->create(),
     'مدير معطّل' => fn (): User => User::factory()->admin()->inactive()->create(),
 ]);
@@ -184,7 +184,7 @@ test('زر الاستعادة في اللوحة يطلب تأكيدًا ويست
         ->assertActionVisible('restoreBaseDesign')
         ->mountAction('restoreBaseDesign')
         ->assertActionMounted('restoreBaseDesign')
-        ->assertSee(__('pages.base.restore.heading'))
+        ->assertMountedActionModalSee(__('pages.base.restore.description'))
         ->callMountedAction()
         ->assertHasNoActionErrors()
         ->assertNotified(__('pages.base.restore.done'));
@@ -194,7 +194,7 @@ test('زر الاستعادة في اللوحة يطلب تأكيدًا ويست
 });
 
 test('زر الاستعادة مخفي عن مشرف بلا content.manage والوصول إلى صفحة القائمة 403', function (): void {
-    $supervisor = User::factory()->supervisor()->withPermissions(['beneficiaries.view'])->create();
+    $supervisor = User::factory()->supervisor()->withPermissions(['beneficiaries.manage'])->create();
 
     $this->actingAs($supervisor)->get('/admin/content/pages')->assertForbidden();
 });

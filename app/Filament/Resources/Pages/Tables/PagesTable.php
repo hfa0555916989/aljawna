@@ -25,7 +25,7 @@ class PagesTable
                     ->label(__('pages.fields.title'))
                     ->searchable()
                     ->wrap()
-                    ->description(fn (Page $record): ?string => $record->is_system ? __('pages.system_page') : null),
+                    ->description(fn (Page $record): ?string => $record->is_system ? (string) __('pages.system_page') : null),
                 TextColumn::make('slug')
                     ->label(__('pages.fields.slug'))
                     ->state(fn (Page $record): string => $record->is_system ? '/' : '/'.$record->slug)

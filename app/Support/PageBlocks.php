@@ -157,7 +157,7 @@ final class PageBlocks
             $type = is_array($block) ? ($block['type'] ?? null) : null;
 
             if (! is_string($type) || ! isset($schema[$type])) {
-                $errors["{$attribute}.{$index}"][] = __('pages.validation.unknown_block');
+                self::addError($errors, "{$attribute}.{$index}", 'pages.validation.unknown_block');
 
                 continue;
             }
@@ -231,14 +231,14 @@ final class PageBlocks
 
         if ($value === null) {
             if ($required) {
-                $errors[$path][] = __('pages.validation.required');
+                self::addError($errors, $path, 'pages.validation.required');
             }
 
             return null;
         }
 
         if (mb_strlen($value) > $max) {
-            $errors[$path][] = __('pages.validation.max', ['max' => $max]);
+            self::addError($errors, $path, 'pages.validation.max', ['max' => $max]);
         }
 
         self::rejectBankDetails($value, $path, $errors);
@@ -261,14 +261,14 @@ final class PageBlocks
 
         if (SafeHtml::plainText($clean) === '') {
             if ($required) {
-                $errors[$path][] = __('pages.validation.required');
+                self::addError($errors, $path, 'pages.validation.required');
             }
 
             return null;
         }
 
         if (mb_strlen($clean) > $max) {
-            $errors[$path][] = __('pages.validation.max', ['max' => $max]);
+            self::addError($errors, $path, 'pages.validation.max', ['max' => $max]);
         }
 
         return $clean;
@@ -283,14 +283,14 @@ final class PageBlocks
 
         if ($value === null) {
             if ($required) {
-                $errors[$path][] = __('pages.validation.required');
+                self::addError($errors, $path, 'pages.validation.required');
             }
 
             return null;
         }
 
         if (! SafeLink::isAllowed($value)) {
-            $errors[$path][] = __('pages.validation.link');
+            self::addError($errors, $path, 'pages.validation.link');
         }
 
         self::rejectBankDetails($value, $path, $errors);
@@ -309,7 +309,7 @@ final class PageBlocks
         }
 
         if (! in_array($raw, $options, true)) {
-            $errors[$path][] = __('pages.validation.invalid');
+            self::addError($errors, $path, 'pages.validation.invalid');
 
             return $options[0];
         }
@@ -327,13 +327,13 @@ final class PageBlocks
         $values = is_array($raw) ? array_values($raw) : [];
 
         if (array_diff($values, $options) !== []) {
-            $errors[$path][] = __('pages.validation.invalid');
+            self::addError($errors, $path, 'pages.validation.invalid');
         }
 
         $selected = array_values(array_filter($options, fn (mixed $option): bool => in_array($option, $values, true)));
 
         if ($selected === [] && $required) {
-            $errors[$path][] = __('pages.validation.required');
+            self::addError($errors, $path, 'pages.validation.required');
         }
 
         return $selected;
@@ -351,7 +351,7 @@ final class PageBlocks
         $value = filter_var($raw, FILTER_VALIDATE_INT);
 
         if ($value === false || $value < $min || $value > $max) {
-            $errors[$path][] = __('pages.validation.between', ['min' => $min, 'max' => $max]);
+            self::addError($errors, $path, 'pages.validation.between', ['min' => $min, 'max' => $max]);
 
             return $default;
         }
@@ -372,7 +372,7 @@ final class PageBlocks
 
         if ($value === null) {
             if ($required) {
-                $errors[$path][] = __('pages.validation.required');
+                self::addError($errors, $path, 'pages.validation.required');
             }
 
             return null;
@@ -381,7 +381,7 @@ final class PageBlocks
         $disk = Storage::disk((string) config('security.branding.disk'));
 
         if (preg_match(self::IMAGE_PATH_PATTERN, $value) !== 1 || ! $disk->exists($value)) {
-            $errors[$path][] = __('pages.validation.image');
+            self::addError($errors, $path, 'pages.validation.image');
         }
 
         return $value;
@@ -399,12 +399,12 @@ final class PageBlocks
         $max = (int) $spec['max'];
 
         if (count($items) > $max) {
-            $errors[$path][] = __('pages.validation.list_max', ['max' => $max]);
+            self::addError($errors, $path, 'pages.validation.list_max', ['max' => $max]);
             $items = array_slice($items, 0, $max);
         }
 
         if (count($items) < $min) {
-            $errors[$path][] = __('pages.validation.list_min', ['min' => $min]);
+            self::addError($errors, $path, 'pages.validation.list_min', ['min' => $min]);
         }
 
         /** @var array<string, array<string, mixed>> $fields */
@@ -432,7 +432,7 @@ final class PageBlocks
         }
 
         if (! is_string($raw)) {
-            $errors[$path][] = __('pages.validation.invalid');
+            self::addError($errors, $path, 'pages.validation.invalid');
 
             return null;
         }
@@ -448,9 +448,20 @@ final class PageBlocks
     private static function rejectBankDetails(string $value, string $path, array &$errors): void
     {
         if (BankDetailsInText::containsIban($value)) {
-            $errors[$path][] = __('pages.validation.iban_in_text');
+            self::addError($errors, $path, 'pages.validation.iban_in_text');
         } elseif (BankDetailsInText::containsAccountNumber($value)) {
-            $errors[$path][] = __('pages.validation.account_in_text');
+            self::addError($errors, $path, 'pages.validation.account_in_text');
         }
+    }
+
+    /**
+     * يضيف رسالة خطأ مترجمة إلى موضع الحقل.
+     *
+     * @param  array<string, list<string>>  $errors
+     * @param  array<string, int|string>  $replace
+     */
+    private static function addError(array &$errors, string $path, string $key, array $replace = []): void
+    {
+        $errors[$path][] = (string) __($key, $replace);
     }
 }

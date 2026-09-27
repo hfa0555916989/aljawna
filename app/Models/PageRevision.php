@@ -23,6 +23,13 @@ class PageRevision extends Model
     public const UPDATED_AT = null;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_baseline' => false,
+    ];
+
+    /**
      * @return BelongsTo<Page, $this>
      */
     public function page(): BelongsTo

@@ -71,7 +71,11 @@ class ValidatePage
             throw ValidationException::withMessages($errors);
         }
 
-        /** @var array{title: string, slug: string, seo_description: string|null} $validated */
+        /**
+         * مسار الصفحة النظامية بلا قواعد فلا يرد في validated()، ويُؤخذ من الصفحة نفسها.
+         *
+         * @var array{title: string, slug?: string, seo_description?: string|null} $validated
+         */
         $validated = $validator->validated();
 
         return [

@@ -120,7 +120,11 @@ class Menus extends PermissionPage
             ->modalDescription(__('pages.menus.restore.description'))
             ->modalSubmitActionLabel(__('pages.revisions.restore.submit'))
             ->action(function (array $arguments): void {
-                $revision = MenuRevision::query()->findOrFail($arguments['revision'] ?? null);
+                $revisionId = filter_var($arguments['revision'] ?? null, FILTER_VALIDATE_INT);
+
+                abort_if($revisionId === false, 404);
+
+                $revision = MenuRevision::query()->findOrFail($revisionId);
 
                 app(RestoreMenuRevision::class)->handle($this->actor(), $revision);
 

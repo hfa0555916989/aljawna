@@ -37,12 +37,16 @@ class RestoreBaseDesign
 
         $home = $this->baseDesign->home();
         $pageBaseline = $home->baselineRevision()->first() ?? throw new RuntimeException('Home baseline revision is missing.');
+
+        /*
+         * "النسخة السابقة" للتراجع تُقرأ قبل menuBaseline()، لأنها قد تنشئ نسخة الأساس
+         * الآن لأول مرة فتصبح آخر السجل، فيشير التراجع إليها بدل قوائم المشرف المعدّلة.
+         */
+        $previousPageRevisionId = $home->revisions()->max('id');
+        $previousMenuRevisionId = MenuRevision::query()->max('id');
         $menuBaseline = $this->baseDesign->menuBaseline();
 
-        return DB::transaction(function () use ($actor, $home, $pageBaseline, $menuBaseline): array {
-            $previousPageRevisionId = $home->revisions()->max('id');
-            $previousMenuRevisionId = MenuRevision::query()->max('id');
-
+        return DB::transaction(function () use ($actor, $home, $pageBaseline, $menuBaseline, $previousPageRevisionId, $previousMenuRevisionId): array {
             $pageRevision = $home->revisions()->create(['blocks' => $pageBaseline->blocks, 'author_id' => $actor->getKey()]);
             $home->forceFill(['blocks' => $pageBaseline->blocks])->save();
             $home->unsetRelation('latestRevision');

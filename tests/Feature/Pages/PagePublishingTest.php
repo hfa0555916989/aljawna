@@ -8,8 +8,10 @@ use App\Actions\Content\RestorePageRevision;
 use App\Actions\Content\SavePageDraft;
 use App\Actions\Content\UnpublishPage;
 use App\Models\AuditLog;
+use App\Models\Beneficiary;
 use App\Models\Page;
 use App\Models\PageRevision;
+use App\Models\User;
 use App\PageStatus;
 use App\Services\BaseDesign;
 use App\Support\PageBlocks;
@@ -122,7 +124,7 @@ test('الاسترجاع يعيد نسخة سابقة كنسخة جديدة ول
 
     $restored = app(RestorePageRevision::class)->handle($actor, $page->refresh(), $first);
 
-    expect($page->revisions()->pluck('id')->all())->toBe([$first->id, $second->id, $restored->id])
+    expect($page->revisions()->orderBy('id')->pluck('id')->all())->toBe([$first->id, $second->id, $restored->id])
         ->and($restored->blocks)->toBe($first->blocks)
         ->and($page->refresh()->blocks)->toBe($first->blocks);
 
@@ -149,7 +151,7 @@ test('إلغاء النشر يخفي الصفحة ويُبقي نسخها، وا
     $this->get('/about-us')->assertNotFound();
 
     $home = app(BaseDesign::class)->home();
-    $admin = App\Models\User::factory()->admin()->create();
+    $admin = User::factory()->admin()->create();
 
     expect(fn () => app(UnpublishPage::class)->handle($admin, $home))->toThrow(AuthorizationException::class);
     expect($home->refresh()->status)->toBe(PageStatus::Published);
@@ -170,7 +172,7 @@ test('سجل نسخ الصفحات للإضافة فقط: لا تعديل ولا
 
 test('الصفحات لا تُحذف لأي أحد: السياسة تمنع المدير، وقاعدة البيانات ترفض الحذف', function (): void {
     $page = Page::factory()->create();
-    $admin = App\Models\User::factory()->admin()->create();
+    $admin = User::factory()->admin()->create();
 
     expect($admin->can('delete', $page))->toBeFalse()
         ->and($admin->can('deleteAny', Page::class))->toBeFalse();
@@ -193,7 +195,7 @@ test('كل حفظ ونشر واسترجاع وإلغاء نشر يُكتب في 
 });
 
 test('الصفحة المنشورة تعرض كل أنواع الكتل، وكتلة المبادرات بلا أي بيانات بنكية', function (): void {
-    $beneficiary = App\Models\Beneficiary::factory()->approved()->create(['display_name' => 'سالم ماجد تركي العجاوني']);
+    $beneficiary = Beneficiary::factory()->approved()->create(['display_name' => 'سالم ماجد تركي العجاوني']);
 
     $page = Page::factory()->published()->create(['slug' => 'all-blocks', 'blocks' => array_values(sampleBlocks())]);
 
