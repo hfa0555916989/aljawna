@@ -17,6 +17,7 @@ use App\Livewire\Beneficiaries\Index as BeneficiaryIndex;
 use App\Livewire\Beneficiaries\Show as BeneficiaryShow;
 use App\Livewire\Dashboard;
 use App\Livewire\Home;
+use App\Livewire\JoinAdmin;
 use App\Livewire\JoinSupervisor;
 use App\Livewire\Transfers\Create as TransferCreate;
 use App\Livewire\Transfers\Index as TransferIndex;
@@ -37,6 +38,12 @@ Route::livewire('/beneficiaries/{beneficiary}', BeneficiaryShow::class)
 Route::livewire('/join/{token}', JoinSupervisor::class)
     ->where('token', '[A-Za-z0-9\-_]+')
     ->name('supervisors.join');
+
+// إكمال حساب مدير من رابط php artisan admin:invite. لا رابط لهذه الصفحة في أي
+// قائمة أو لوحة (docs/SPEC.md §2)، فمن يصلها يحتاج الرابط نفسه.
+Route::livewire('/admin-join/{token}', JoinAdmin::class)
+    ->where('token', '[A-Za-z0-9\-_]+')
+    ->name('admin.join');
 
 Route::middleware('guest')->group(function (): void {
     Route::livewire('/register', Register::class)->name('register');
