@@ -96,6 +96,27 @@ test('القفل المؤقت لكل عنوان زائر: تغيير X-Forwarded
         ->and($user->fresh()->last_login_ip)->toBe('203.0.113.8');
 });
 
+test('TRUSTED_PROXIES الفارغ في .env يعني "غير مضبوط" فلا يعطّل الكشف التلقائي على Laravel Cloud', function (): void {
+    $_ENV['TRUSTED_PROXIES'] = $_SERVER['TRUSTED_PROXIES'] = '';
+    putenv('TRUSTED_PROXIES=');
+
+    try {
+        $config = require config_path('trustedproxy.php');
+    } finally {
+        unset($_ENV['TRUSTED_PROXIES'], $_SERVER['TRUSTED_PROXIES']);
+        putenv('TRUSTED_PROXIES');
+    }
+
+    expect($config['proxies'])->toBeNull();
+
+    $_SERVER['LARAVEL_CLOUD'] = '1';
+    config(['trustedproxy.proxies' => $config['proxies']]);
+
+    loginOverHttp('0500000001', 'wrong-password', ['CF-Connecting-IP' => '203.0.113.7'])->assertOk();
+
+    expect(LoginAttempt::query()->sole()->ip)->toBe('203.0.113.7');
+});
+
 test('خارج Laravel Cloud وبلا وسطاء موثوقين تُتجاهل الترويسات ويُعتمد عنوان الاتصال نفسه', function (): void {
     loginOverHttp('0500000001', 'wrong-password', [
         'X-Forwarded-For' => '203.0.113.7',

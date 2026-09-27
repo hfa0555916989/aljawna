@@ -22,7 +22,8 @@ return [
     |
     */
 
-    'proxies' => env('TRUSTED_PROXIES'),
+    // الفارغ (TRUSTED_PROXIES= في .env) يعني "غير مضبوط"، وإلا عطّل الكشف التلقائي على Laravel Cloud.
+    'proxies' => env('TRUSTED_PROXIES') ?: null,
 
     'client_ip_header' => env('TRUSTED_PROXY_CLIENT_IP_HEADER'),
 

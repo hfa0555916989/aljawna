@@ -18,11 +18,15 @@ trait BootsWithCustomAdminPath
 
     public function createApplication(): Application
     {
-        $_ENV['ADMIN_PATH'] = $_SERVER['ADMIN_PATH'] = self::CUSTOM_ADMIN_PATH;
-        putenv('ADMIN_PATH='.self::CUSTOM_ADMIN_PATH);
-
         /** @var Application $app */
         $app = require Application::inferBasePath().'/bootstrap/app.php';
+
+        // بعد تحميل .env لا قبله: Dotenv يعيد كتابة متغير حمّله سابقًا في العملية نفسها
+        // (كـ ADMIN_PATH= الفارغ في .env بـ CI) عند كل إقلاع.
+        $app->afterLoadingEnvironment(function (): void {
+            $_ENV['ADMIN_PATH'] = $_SERVER['ADMIN_PATH'] = self::CUSTOM_ADMIN_PATH;
+            putenv('ADMIN_PATH='.self::CUSTOM_ADMIN_PATH);
+        });
 
         $this->traitsUsedByTest = class_uses_recursive(static::class);
 
