@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Page;
+use App\Services\LegalPages;
 use App\Services\PageRenderer;
 use Illuminate\Contracts\View\View;
 
@@ -16,8 +17,18 @@ use Illuminate\Contracts\View\View;
  */
 class ShowPageController extends Controller
 {
-    public function __invoke(string $slug, PageRenderer $renderer): View
+    public function __invoke(string $slug, PageRenderer $renderer, LegalPages $legalPages): View
     {
+        /*
+         * صفحتا الخصوصية والشروط (T19) تُنشآن عادة عند أول زيارة للرئيسية (App\Services\BaseDesign::menuItems).
+         * هذا يضمن وجودهما أيضًا عند رابط مباشر إليهما قبل أي زيارة سابقة للرئيسية.
+         */
+        if ($slug === LegalPages::PRIVACY_SLUG) {
+            $legalPages->privacy();
+        } elseif ($slug === LegalPages::TERMS_SLUG) {
+            $legalPages->terms();
+        }
+
         $page = Page::query()
             ->published()
             ->where('is_system', false)

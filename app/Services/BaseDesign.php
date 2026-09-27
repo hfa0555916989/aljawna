@@ -26,6 +26,8 @@ class BaseDesign
 {
     public const string HOME_SLUG = 'home';
 
+    public function __construct(private readonly LegalPages $legalPages) {}
+
     /**
      * الصفحة الرئيسية النظامية، تُنشأ بالتصميم الأساسي ونسخة أساسه إن لم توجد.
      */
@@ -144,19 +146,25 @@ class BaseDesign
     }
 
     /**
-     * عناصر القائمتين في التصميم الأساسي بترتيبها.
+     * عناصر القائمتين في التصميم الأساسي بترتيبها. صفحتا الخصوصية والشروط
+     * (App\Services\LegalPages، T19) تُضافان إلى التذييل فقط.
      *
      * @return list<array{location: string, label: string, page_id: int|null, url: string|null}>
      */
     public function menuItems(): array
     {
         $homeId = $this->home()->id;
+        $privacyId = $this->legalPages->privacy()->id;
+        $termsId = $this->legalPages->terms()->id;
         $items = [];
 
         foreach (MenuLocation::cases() as $location) {
             $items[] = ['location' => $location->value, 'label' => (string) __('pages.base.menu.home'), 'page_id' => $homeId, 'url' => null];
             $items[] = ['location' => $location->value, 'label' => (string) __('pages.base.menu.beneficiaries'), 'page_id' => null, 'url' => '/beneficiaries'];
         }
+
+        $items[] = ['location' => MenuLocation::Footer->value, 'label' => (string) __('pages.base.menu.privacy'), 'page_id' => $privacyId, 'url' => null];
+        $items[] = ['location' => MenuLocation::Footer->value, 'label' => (string) __('pages.base.menu.terms'), 'page_id' => $termsId, 'url' => null];
 
         return $items;
     }
