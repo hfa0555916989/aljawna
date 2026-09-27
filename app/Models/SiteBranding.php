@@ -87,21 +87,21 @@ class SiteBranding extends Model
     public function lightLogoUrl(): string
     {
         return $this->logo_light_path !== null
-            ? Storage::disk('public')->url($this->logo_light_path)
+            ? Storage::disk((string) config('security.branding.disk'))->url($this->logo_light_path)
             : URL::route('brand.asset', ['asset' => self::DEFAULT_LIGHT_LOGO_ASSET]);
     }
 
     public function darkLogoUrl(): string
     {
         return $this->logo_dark_path !== null
-            ? Storage::disk('public')->url($this->logo_dark_path)
+            ? Storage::disk((string) config('security.branding.disk'))->url($this->logo_dark_path)
             : URL::route('brand.asset', ['asset' => self::DEFAULT_DARK_LOGO_ASSET]);
     }
 
     public function iconUrl(): string
     {
         return $this->icon_path !== null
-            ? Storage::disk('public')->url($this->icon_path)
+            ? Storage::disk((string) config('security.branding.disk'))->url($this->icon_path)
             : URL::route('brand.asset', ['asset' => self::DEFAULT_ICON_ASSET]);
     }
 
