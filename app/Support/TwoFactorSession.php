@@ -10,9 +10,13 @@ use App\Models\User;
  * هل اجتازت الجلسة الحالية التحقق بخطوتين؟ (docs/DECISIONS.md)
  *
  * كل دخول (حدث Login) يضع العلامة: "لم تجتز" إن كان صاحب دور اللوحة قد فعّل
- * التحقق، و"مجتازة" إن لم يفعّله بعد (فيُحوَّل إلى صفحة الإعداد الإلزامية).
- * صفحة /login وحدها ترفعها إلى "مجتازة" بعد رمز صحيح. فأي طريق دخول آخر
- * يتجاوز الخطوة الثانية تُرفض جلسته في اللوحة (EnsureTwoFactorAuthentication).
+ * التحقق. ترفعها إلى "مجتازة" صفحة /login بعد رمز صحيح، وصفحات إعداد التحقق
+ * (الدعوات ورابط admin:reset-2fa) بعد تفعيله برمز صحيح. فأي طريق دخول آخر
+ * يتجاوز الخطوة الثانية، أو جلسة دور لوحة بلا تحقق مفعَّل، تُنهى في كل مسار
+ * (EnsurePanelRoleTwoFactor وEnsureTwoFactorAuthentication).
+ *
+ * الجلسة بلا علامة أصلًا (لم تمرّ بحدث Login، كما في actingAs بالاختبارات) لا
+ * تُعدّ "لم تجتز"، لأن كل دخول حقيقي يمرّ بالحدث، ومنه الدخول بـ "تذكّرني".
  */
 final class TwoFactorSession
 {
@@ -31,6 +35,15 @@ final class TwoFactorSession
     public static function markPassed(): void
     {
         session()->put(self::SESSION_KEY, true);
+    }
+
+    /**
+     * هل يجوز لهذه الجلسة أي وصول؟ المبادر دائمًا. دور اللوحة بشرط تحقق مفعَّل
+     * وجلسة لم تُعلَّم "لم تجتز" (docs/DECISIONS.md، T20).
+     */
+    public static function allowsAccess(User $user): bool
+    {
+        return ! $user->hasPanelRole() || ($user->hasTwoFactorEnabled() && ! self::isUnverified($user));
     }
 
     /**

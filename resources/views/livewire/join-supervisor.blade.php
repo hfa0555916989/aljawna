@@ -5,6 +5,10 @@
         <p role="alert" class="mt-6 rounded-[10px] border border-bad px-3 py-2 text-sm text-bad">
             {{ __('supervisors.errors.token_used') }}
         </p>
+    @elseif ($recoveryCodes !== [])
+        <div class="mt-6">
+            <x-two-factor.recovery-codes :codes="$recoveryCodes" :continue-url="auth()->user()?->homeUrl()" />
+        </div>
     @else
         <form wire:submit="join" novalidate class="mt-6 flex flex-col gap-5 rounded-[14px] border border-line bg-surface p-4 sm:p-6">
             @error('form')
@@ -41,6 +45,8 @@
 
             <x-form.password-input name="password" label="كلمة المرور" autocomplete="new-password" />
             <x-form.password-input name="password_confirmation" label="تأكيد كلمة المرور" autocomplete="new-password" />
+
+            <x-two-factor.enroll :qr="$enrollment['qr']" :secret="$enrollment['secret']" />
 
             <button type="submit" class="min-h-11 rounded-[10px] bg-pri px-4 py-2 text-base font-semibold text-pri-ink">
                 {{ __('supervisors.join.submit') }}

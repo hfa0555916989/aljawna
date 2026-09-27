@@ -193,6 +193,8 @@ return [
         'transferred_on' => 'تاريخ الحوالة',
         'bank_reference' => 'رقم العملية',
         'receipt' => 'الإيصال',
+        'two_factor_code' => 'رمز التحقق',
+        'code' => 'رمز التحقق',
     ],
 
 ];

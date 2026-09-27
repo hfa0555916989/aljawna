@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\TwoFactorSetupLink;
 use App\Models\User;
 use App\UserRole;
 use Database\Seeders\AdminUserSeeder;
@@ -42,4 +43,23 @@ test('لا ينشئ أي حساب إن كانت إعدادات المدير غي
     $this->seed(AdminUserSeeder::class);
 
     expect(User::query()->count())->toBe(0);
+});
+
+test('لا يعمل في الإنتاج إطلاقًا: المدير الأول هناك عبر admin:invite فقط (T20)', function (): void {
+    app()->detectEnvironment(fn (): string => 'production');
+
+    app(AdminUserSeeder::class)->run();
+
+    expect(User::query()->count())->toBe(0);
+});
+
+test('يصدر رابط إعداد التحقق للمدير الجديد، فكلمة المرور وحدها لا تُدخله (T20)', function (): void {
+    $this->artisan('db:seed', ['--class' => AdminUserSeeder::class])
+        ->expectsOutputToContain(url('/two-factor/setup/'))
+        ->assertSuccessful();
+
+    $admin = User::query()->where('phone', config('admin.phone'))->sole();
+
+    expect($admin->hasTwoFactorEnabled())->toBeFalse()
+        ->and(TwoFactorSetupLink::query()->where('user_id', $admin->id)->sole()->isUsable())->toBeTrue();
 });

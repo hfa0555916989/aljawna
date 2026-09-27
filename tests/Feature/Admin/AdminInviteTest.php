@@ -68,6 +68,7 @@ test('الرمز يُستهلك لمرة واحدة ولا يمكن إعادة �
         ->set('full_name', 'سالم ماجد تركي العجاوني')
         ->set('password', 'Secretpass1')
         ->set('password_confirmation', 'Secretpass1')
+        ->set('two_factor_code', pendingTwoFactorCode('join:admin:'.$token))
         ->call('join')
         ->assertHasNoErrors();
 
@@ -103,6 +104,7 @@ test('إنشاء حساب المدير يُسجَّل في سجل التدقيق
         ->set('full_name', 'سالم ماجد تركي العجاوني')
         ->set('password', 'Secretpass1')
         ->set('password_confirmation', 'Secretpass1')
+        ->set('two_factor_code', pendingTwoFactorCode('join:admin:'.$result['plain_token']))
         ->call('join')
         ->assertHasNoErrors();
 

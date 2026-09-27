@@ -154,7 +154,9 @@ test('التنبيه لا يحتوي أي بيانات شخصية', function ():
 
         return ! str_contains($body, $user->full_name)
             && ! str_contains($body, '512345678')
-            && str_contains($body, adminPath('system-health'));
+            // ولا مسار اللوحة غير المتوقع، فلا يمرّ عبر مزوّد البريد (T20).
+            && ! str_contains($body, (string) config('admin.path'))
+            && str_contains($body, 'صحة النظام');
     });
 });
 
