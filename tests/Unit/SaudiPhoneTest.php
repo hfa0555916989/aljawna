@@ -66,6 +66,29 @@ test('يرفض القيمة الفارغة أو null', function (): void {
     expect(SaudiPhone::normalize(null))->toBeNull();
 });
 
+test('appearsIn يكشف رقم جوال سعودي داخل نص حر بأي صيغة مقبولة', function (string $text): void {
+    expect(SaudiPhone::appearsIn($text))->toBeTrue();
+})->with([
+    'محلي' => ['تواصل معه على 0512345678 مساءً'],
+    'دولي' => ['رقمه +966512345678'],
+    'دولي بمسافة' => ['رقمه + 966 51 234 5678'],
+    '00966' => ['00966512345678'],
+    'بفواصل' => ['05-1234-5678'],
+    'بأرقام عربية' => ['رقمه ٠٥١٢٣٤٥٦٧٨'],
+    'ملاصق لحروف' => ['الرقم:0512345678.'],
+]);
+
+test('appearsIn لا يكشف أرقامًا عادية ولا أرقامًا غير جوالات سعودية', function (string $text): void {
+    expect(SaudiPhone::appearsIn($text))->toBeFalse();
+})->with([
+    'عدد صغير' => ['11 محاولة فاشلة خلال 24 ساعة'],
+    'هاتف ثابت' => ['0112345678'],
+    'أقصر' => ['05123456'],
+    'أطول' => ['051234567890'],
+    'رمز دولة آخر' => ['+971501234567'],
+    'تاريخ' => ['2026-09-27'],
+]);
+
 test('isValid تعكس نتيجة normalize', function (): void {
     expect(SaudiPhone::isValid('0512345678'))->toBeTrue();
     expect(SaudiPhone::isValid('0012345678'))->toBeFalse();

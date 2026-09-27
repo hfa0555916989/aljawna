@@ -6,11 +6,14 @@ namespace App\Actions\Users;
 
 use App\Models\User;
 use App\PermissionKey;
+use App\Rules\NoBankAccountInText;
+use App\Rules\NoPhoneInText;
 use App\Services\Audit;
 use App\Support\SessionEpoch;
 use App\UserRole;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -52,6 +55,13 @@ class SetInitiatorActive
                 'toggle_reason' => __('security.errors.reason_too_long', ['max' => self::REASON_MAX_LENGTH]),
             ]);
         }
+
+        Validator::make(['toggle_reason' => $cleanReason], [
+            'toggle_reason' => [
+                new NoBankAccountInText('security.errors.reason_has_iban'),
+                new NoPhoneInText('security.errors.reason_has_phone'),
+            ],
+        ])->validate();
 
         DB::transaction(function () use ($actor, $user, $active, $cleanReason): void {
             $locked = User::query()->whereKey($user->getKey())->lockForUpdate()->firstOrFail();

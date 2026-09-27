@@ -64,6 +64,17 @@ final class SaudiPhone
     }
 
     /**
+     * هل يحتوي نص حر رقم جوال سعودي بأي صيغة يقبلها normalize (برمز الدولة أو الصفر المحلي)؟
+     */
+    public static function appearsIn(string $text): bool
+    {
+        return preg_match(
+            '/(?<!\d)(?:\+\s*966|00966|966|0)[\s\-.()]*5(?:[\s\-.()]*\d){8}(?!\d)/',
+            self::toWesternDigits($text),
+        ) === 1;
+    }
+
+    /**
      * يحوّل الأرقام العربية (الهندية) ٠-٩ إلى أرقام لاتينية 0-9.
      */
     private static function toWesternDigits(string $value): string

@@ -175,6 +175,47 @@ test('التعطيل دون سبب يُرفض ولا يغيّر الحساب', f
         ->and(AuditLog::query()->count())->toBe(0);
 })->with(['فارغ' => [''], 'مسافات فقط' => ['   ']]);
 
+test('السبب الذي يحتوي آيبان أو رقم جوال يُرفض ولا يُسجَّل', function (string $reason, string $messageKey): void {
+    $user = suspiciousInitiator();
+
+    Livewire::actingAs(securityOfficer())
+        ->test(Security::class)
+        ->call('startToggle', $user->id)
+        ->set('toggleReason', $reason)
+        ->call('toggleActive', $user->id)
+        ->assertHasErrors(['toggle_reason'])
+        ->assertSee(__($messageKey));
+
+    expect($user->fresh()->is_active)->toBeTrue()
+        ->and(AuditLog::query()->count())->toBe(0);
+})->with([
+    'آيبان متصل' => ['حوّل من SA0380000000608010167519', 'security.errors.reason_has_iban'],
+    'آيبان بمسافات' => ['الحساب SA03 8000 0000 6080 1016 7519', 'security.errors.reason_has_iban'],
+    'جوال محلي' => ['انتحل رقم 0512345678', 'security.errors.reason_has_phone'],
+    'جوال دولي' => ['يستخدم +966 51 234 5678', 'security.errors.reason_has_phone'],
+    'جوال بأرقام عربية' => ['رقمه ٠٥١٢٣٤٥٦٧٨', 'security.errors.reason_has_phone'],
+]);
+
+test('السبب الذي فيه أعداد عادية يُقبل عند التعطيل وعند إعادة التفعيل', function (): void {
+    $officer = securityOfficer();
+    $user = User::factory()->create();
+
+    app(SetInitiatorActive::class)->handle($officer, $user, false, '11 محاولة فاشلة خلال 24 ساعة');
+    expect($user->is_active)->toBeFalse();
+
+    app(SetInitiatorActive::class)->handle($officer, $user, true, 'تحقّقنا في 2026-09-27');
+    expect($user->is_active)->toBeTrue();
+});
+
+test('قيد النص الحر يسري على سبب إعادة التفعيل أيضًا', function (): void {
+    $user = User::factory()->inactive()->create();
+
+    expect(fn () => app(SetInitiatorActive::class)->handle(securityOfficer(), $user, true, 'رقمه الجديد 0512345678'))
+        ->toThrow(ValidationException::class, __('security.errors.reason_has_phone'));
+
+    expect($user->fresh()->is_active)->toBeFalse();
+});
+
 test('السبب الأطول من الحد يُرفض', function (): void {
     $user = suspiciousInitiator();
 
