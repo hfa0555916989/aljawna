@@ -15,6 +15,11 @@ namespace App\Support;
 final class SaudiPhone
 {
     /**
+     * جوال سعودي داخل نص حر بأي صيغة يقبلها normalize (برمز الدولة أو الصفر المحلي).
+     */
+    public const string IN_TEXT_PATTERN = '/(?<!\d)(?:\+\s*966|00966|966|0)[\s\-.()]*5(?:[\s\-.()]*\d){8}(?!\d)/';
+
+    /**
      * لا يُنشأ ككائن؛ كل الوظائف ساكنة.
      */
     private function __construct()
@@ -68,16 +73,13 @@ final class SaudiPhone
      */
     public static function appearsIn(string $text): bool
     {
-        return preg_match(
-            '/(?<!\d)(?:\+\s*966|00966|966|0)[\s\-.()]*5(?:[\s\-.()]*\d){8}(?!\d)/',
-            self::toWesternDigits($text),
-        ) === 1;
+        return preg_match(self::IN_TEXT_PATTERN, self::toWesternDigits($text)) === 1;
     }
 
     /**
      * يحوّل الأرقام العربية (الهندية) ٠-٩ إلى أرقام لاتينية 0-9.
      */
-    private static function toWesternDigits(string $value): string
+    public static function toWesternDigits(string $value): string
     {
         $arabicIndic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
         $western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];

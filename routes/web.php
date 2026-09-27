@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\PreviewPageController;
 use App\Http\Controllers\Admin\UpdateSupervisorPermissionsController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\BrandAssetController;
+use App\Http\Controllers\ShowPageController;
 use App\Http\Controllers\ShowTransferReceiptController;
+use App\Http\Controllers\SitemapController;
 use App\Livewire\Auth\ForgotPassword;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
@@ -18,6 +21,7 @@ use App\Livewire\JoinSupervisor;
 use App\Livewire\Transfers\Create as TransferCreate;
 use App\Livewire\Transfers\Index as TransferIndex;
 use App\PermissionKey;
+use App\Support\ReservedSlugs;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/brand/{asset}', BrandAssetController::class)
@@ -58,4 +62,17 @@ Route::middleware('auth')->group(function (): void {
         ->whereNumber('supervisor')
         ->middleware('can:'.PermissionKey::SupervisorsManage->value)
         ->name('admin.supervisors.permissions.update');
+
+    Route::get('/admin/content/pages/{page}/preview', PreviewPageController::class)
+        ->whereNumber('page')
+        ->middleware('can:'.PermissionKey::ContentManage->value)
+        ->name('admin.pages.preview');
 });
+
+Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
+
+// صفحات منشئ الصفحات: آخر مسار دائمًا (fallback)، فلا تحجب صفحةٌ مسارًا نظاميًا (FR-55).
+Route::get('/{slug}', ShowPageController::class)
+    ->where('slug', ReservedSlugs::routePattern())
+    ->fallback()
+    ->name('pages.show');

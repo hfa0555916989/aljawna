@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use App\Models\Beneficiary;
+use App\Models\User;
+use App\Support\PageBlocks;
 use App\Support\SaudiIban;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportTesting\Testable;
 use Tests\TestCase;
 
@@ -145,6 +148,82 @@ function pngBytes(int $width = 60, int $height = 40, ?string $textChunk = null):
 function pdfBytes(string $marker = 'receipt'): string
 {
     return "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Title ({$marker}) >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n";
+}
+
+/**
+ * مشرف ممنوح content.manage فقط (منشئ الصفحات، T17).
+ */
+function contentManager(): User
+{
+    return User::factory()->supervisor()->withPermissions(['content.manage'])->create();
+}
+
+/**
+ * كتلة صالحة من كل نوع في منشئ الصفحات، بنصوص وهمية.
+ *
+ * @return array<string, array{type: string, data: array<string, mixed>}>
+ */
+function sampleBlocks(): array
+{
+    $imagePath = str_repeat('a', 40).'.png';
+    Storage::disk((string) config('security.branding.disk'))->put($imagePath, pngBytes());
+
+    return [
+        PageBlocks::HERO => ['type' => PageBlocks::HERO, 'data' => [
+            'title' => 'عنوان الصفحة',
+            'lead' => 'نص تعريفي قصير.',
+            'show_counters' => false,
+            'buttons' => [['label' => 'تصفّح', 'url' => '/beneficiaries', 'style' => 'primary', 'guests_only' => false]],
+        ]],
+        PageBlocks::RICH_TEXT => ['type' => PageBlocks::RICH_TEXT, 'data' => [
+            'heading' => 'عن المبادرة',
+            'body' => '<p>نص <strong>منسّق</strong> و<a href="https://example.com">رابط</a>.</p>',
+        ]],
+        PageBlocks::IMAGE => ['type' => PageBlocks::IMAGE, 'data' => [
+            'path' => $imagePath,
+            'alt' => 'صورة توضيحية',
+            'caption' => 'تعليق الصورة',
+        ]],
+        PageBlocks::CARDS => ['type' => PageBlocks::CARDS, 'data' => [
+            'heading' => 'بطاقات',
+            'items' => [['title' => 'بطاقة', 'body' => 'وصف البطاقة', 'link_label' => 'تواصل', 'link_url' => 'https://wa.me/966501234567']],
+        ]],
+        PageBlocks::STEPS => ['type' => PageBlocks::STEPS, 'data' => [
+            'heading' => 'الخطوات',
+            'items' => [['title' => 'الخطوة الأولى', 'body' => 'شرح الخطوة']],
+        ]],
+        PageBlocks::FAQ => ['type' => PageBlocks::FAQ, 'data' => [
+            'heading' => 'أسئلة',
+            'items' => [['question' => 'سؤال؟', 'answer' => 'جواب.']],
+        ]],
+        PageBlocks::COUNTERS => ['type' => PageBlocks::COUNTERS, 'data' => [
+            'heading' => 'أرقام',
+            'metrics' => ['available', 'total'],
+        ]],
+        PageBlocks::DIVIDER => ['type' => PageBlocks::DIVIDER, 'data' => []],
+        PageBlocks::INITIATIVES => ['type' => PageBlocks::INITIATIVES, 'data' => [
+            'heading' => 'المبادرات',
+            'mode' => PageBlocks::INITIATIVES_AVAILABLE,
+            'limit' => 3,
+        ]],
+    ];
+}
+
+/**
+ * بيانات صفحة صالحة لإجراءات منشئ الصفحات.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function pageInput(array $overrides = []): array
+{
+    return [
+        'title' => 'من نحن',
+        'slug' => 'about-us',
+        'seo_description' => 'تعريف قصير بالمبادرة.',
+        'blocks' => [sampleBlocks()[PageBlocks::HERO]],
+        ...$overrides,
+    ];
 }
 
 /**

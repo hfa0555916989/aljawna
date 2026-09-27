@@ -24,9 +24,9 @@ class Index extends Component
     public const TAB_CLOSED = 'closed';
 
     /**
-     * الأعمدة الآمنة للعرض العام.
+     * الأعمدة الآمنة للعرض العام (تستخدمها أيضًا كتلة "المبادرات" في App\Services\PageRenderer).
      */
-    private const PUBLIC_COLUMNS = [
+    public const PUBLIC_COLUMNS = [
         'id', 'display_name', 'target_amount', 'target_deadline', 'recommended_deadline', 'status', 'approved_at',
     ];
 

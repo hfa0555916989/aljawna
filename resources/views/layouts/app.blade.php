@@ -9,9 +9,13 @@
             $branding = \App\Models\SiteBranding::current();
             $pageTitle = $title ?? $branding->initiative_name;
             $pageDescription = $description ?? __('site.meta.description');
+            $siteMenu = app(\App\Services\SiteMenu::class);
         @endphp
         <title>{{ $pageTitle }}</title>
         <meta name="description" content="{{ $pageDescription }}">
+        @if ($noindex ?? false)
+            <meta name="robots" content="noindex, nofollow">
+        @endif
         <link rel="canonical" href="{{ url()->current() }}">
         <link rel="icon" type="image/svg+xml" href="{{ $branding->iconUrl() }}">
         <meta property="og:type" content="website">
@@ -36,13 +40,13 @@
                     <img src="{{ $branding->darkLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="hidden h-8 w-auto dark:block" data-branding-logo="dark">
                 </a>
 
-                <nav class="flex flex-wrap items-center gap-x-1 whitespace-nowrap text-sm sm:gap-x-3">
-                    <a href="{{ url('/') }}" class="min-h-11 flex items-center px-2 text-ink hover:text-pri">
-                        الرئيسية
-                    </a>
-                    <a href="{{ route('beneficiaries.index') }}" class="min-h-11 flex items-center px-2 text-ink hover:text-pri">
-                        المبادرات
-                    </a>
+                <nav aria-label="{{ __('pages.menus.locations.header') }}" class="flex flex-wrap items-center gap-x-1 whitespace-nowrap text-sm sm:gap-x-3">
+                    {{-- عناصر القائمة من منشئ الصفحات (menu_items)، وروابط الحساب بعدها نظامية ثابتة. --}}
+                    @foreach ($siteMenu->links(\App\MenuLocation::Header) as $link)
+                        <a href="{{ $link['url'] }}" @if ($link['external']) rel="noopener noreferrer" @endif class="min-h-11 flex items-center px-2 text-ink hover:text-pri" data-menu="header">
+                            {{ $link['label'] }}
+                        </a>
+                    @endforeach
                     @guest
                         <a href="{{ route('login') }}" class="min-h-11 flex items-center px-2 text-ink hover:text-pri">
                             الدخول
@@ -66,6 +70,16 @@
 
         <footer class="border-t border-line mt-8 safe-area-bottom">
             <div class="mx-auto max-w-6xl px-4 py-6 flex flex-col items-center gap-2 text-sm text-muted">
+                @php($footerLinks = $siteMenu->links(\App\MenuLocation::Footer))
+                @if ($footerLinks !== [])
+                    <nav aria-label="{{ __('pages.menus.locations.footer') }}" class="mb-2 flex flex-wrap items-center justify-center gap-x-2">
+                        @foreach ($footerLinks as $link)
+                            <a href="{{ $link['url'] }}" @if ($link['external']) rel="noopener noreferrer" @endif class="min-h-11 flex items-center px-2 text-ink hover:text-pri" data-menu="footer">
+                                {{ $link['label'] }}
+                            </a>
+                        @endforeach
+                    </nav>
+                @endif
                 <img src="{{ $branding->lightLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="h-6 w-auto dark:hidden" data-branding-logo="light">
                 <img src="{{ $branding->darkLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="hidden h-6 w-auto dark:block" data-branding-logo="dark">
                 <p>&copy; {{ now()->year }} {{ $branding->initiative_name }}</p>
