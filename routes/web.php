@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Admin\UpdateSupervisorPermissionsController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\BrandAssetController;
 use App\Http\Controllers\ShowTransferReceiptController;
 use App\Livewire\Auth\ForgotPassword;
 use App\Livewire\Auth\Login;
@@ -18,6 +19,10 @@ use App\Livewire\Transfers\Create as TransferCreate;
 use App\Livewire\Transfers\Index as TransferIndex;
 use App\PermissionKey;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/brand/{asset}', BrandAssetController::class)
+    ->where('asset', '[A-Za-z0-9\-.]+')
+    ->name('brand.asset');
 
 Route::livewire('/', Home::class)->name('home');
 Route::livewire('/beneficiaries', BeneficiaryIndex::class)->name('beneficiaries.index');

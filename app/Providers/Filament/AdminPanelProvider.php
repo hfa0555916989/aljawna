@@ -8,6 +8,8 @@ use App\Filament\AvatarProviders\InitialAvatarProvider;
 use App\Filament\Pages\Auth\Login;
 use App\Http\Middleware\AuthenticateAdminPanel;
 use App\Http\Middleware\EnsureSessionEpoch;
+use App\Models\SiteBranding;
+use App\Services\BrandingCss;
 use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -15,12 +17,14 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -33,8 +37,12 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(Login::class)
-            ->brandName(config('app.name'))
+            ->brandName(fn (): string => SiteBranding::current()->initiative_name)
             ->brandLogo(fn () => view('filament.admin.logo'))
+            ->darkModeBrandLogo(fn () => view('filament.admin.logo-dark'))
+            ->favicon(fn (): string => SiteBranding::current()->iconUrl())
+            // متغيرات --pri/--brass تُحقن هنا من site_branding (docs/DESIGN-TOKENS.md، tasks/T16-branding.md #4).
+            ->renderHook(PanelsRenderHook::HEAD_END, fn (): HtmlString => new HtmlString(BrandingCss::styleTag()))
             // docs/DESIGN-TOKENS.md: الدرجة 600 هي --pri الفاتح و400 هي --pri الداكن، والبقية متدرّجة بينهما.
             // لوحة صريحة لأن توليد Filament من لون واحد يثبّت الإضاءة فيُفتّح الأخضر العميق.
             ->colors([

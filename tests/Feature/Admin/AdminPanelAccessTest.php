@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\SiteBranding;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 
@@ -19,14 +20,14 @@ test('الزائر يُحوَّل إلى دخول اللوحة', function (): vo
     $this->get('/admin')->assertRedirect('/admin/login');
 });
 
-test('اللوحة عربية واتجاهها من اليمين لليسار وتحمل هوية المبادرة', function (): void {
+test('اللوحة عربية واتجاهها من اليمين لليسار وتحمل هوية المبادرة (T16 — الشعار المعتمد)', function (): void {
     $this->actingAs(User::factory()->admin()->create())
         ->get('/admin')
         ->assertOk()
         ->assertSee('lang="ar"', false)
         ->assertSee('dir="rtl"', false)
-        ->assertSee(config('app.name'))
-        ->assertSee('font-brand', false);
+        ->assertSee(SiteBranding::current()->initiative_name)
+        ->assertSee('src="'.route('brand.asset', ['asset' => SiteBranding::DEFAULT_LIGHT_LOGO_ASSET]).'"', false);
 });
 
 test('اللوحة لا تحمّل خطوطًا أو صورًا رمزية من خدمات خارجية', function (): void {

@@ -6,14 +6,16 @@
         <meta name="color-scheme" content="light dark">
 
         @php
-            $pageTitle = $title ?? config('app.name');
+            $branding = \App\Models\SiteBranding::current();
+            $pageTitle = $title ?? $branding->initiative_name;
             $pageDescription = $description ?? __('site.meta.description');
         @endphp
         <title>{{ $pageTitle }}</title>
         <meta name="description" content="{{ $pageDescription }}">
         <link rel="canonical" href="{{ url()->current() }}">
+        <link rel="icon" type="image/svg+xml" href="{{ $branding->iconUrl() }}">
         <meta property="og:type" content="website">
-        <meta property="og:site_name" content="{{ config('app.name') }}">
+        <meta property="og:site_name" content="{{ $branding->initiative_name }}">
         <meta property="og:locale" content="ar_SA">
         <meta property="og:title" content="{{ $pageTitle }}">
         <meta property="og:description" content="{{ $pageDescription }}">
@@ -21,14 +23,17 @@
         <meta name="twitter:card" content="summary">
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        {{-- ألوان الهوية (--pri, --brass) من site_branding، تُحقن بعد الأنماط الافتراضية لتجاوزها (tasks/T16-branding.md #4). --}}
+        {!! \App\Services\BrandingCss::styleTag() !!}
 
         @livewireStyles
     </head>
     <body class="min-h-screen bg-bg text-ink antialiased flex flex-col safe-area-x">
         <header class="border-b border-line safe-area-top">
             <div class="mx-auto max-w-6xl px-4 py-2 flex flex-wrap items-center justify-between gap-x-4">
-                <a href="{{ url('/') }}" class="flex min-h-11 items-center gap-2 whitespace-nowrap font-brand text-xl font-bold text-pri">
-                    {{ config('app.name') }}
+                <a href="{{ url('/') }}" class="flex min-h-11 items-center gap-2 whitespace-nowrap">
+                    <img src="{{ $branding->lightLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="h-8 w-auto dark:hidden" data-branding-logo="light">
+                    <img src="{{ $branding->darkLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="hidden h-8 w-auto dark:block" data-branding-logo="dark">
                 </a>
 
                 <nav class="flex flex-wrap items-center gap-x-1 whitespace-nowrap text-sm sm:gap-x-3">
@@ -60,8 +65,10 @@
         </main>
 
         <footer class="border-t border-line mt-8 safe-area-bottom">
-            <div class="mx-auto max-w-6xl px-4 py-6 text-sm text-muted text-center">
-                &copy; {{ now()->year }} {{ config('app.name') }}
+            <div class="mx-auto max-w-6xl px-4 py-6 flex flex-col items-center gap-2 text-sm text-muted">
+                <img src="{{ $branding->lightLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="h-6 w-auto dark:hidden" data-branding-logo="light">
+                <img src="{{ $branding->darkLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="hidden h-6 w-auto dark:block" data-branding-logo="dark">
+                <p>&copy; {{ now()->year }} {{ $branding->initiative_name }}</p>
             </div>
         </footer>
 
