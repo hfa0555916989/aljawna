@@ -109,4 +109,31 @@ return [
         'max_per_ip_per_hour' => (int) env('RECOVERY_MAX_PER_IP_PER_HOUR', 5),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | الحسابات المشبوهة (docs/SPEC.md §12.7)
+    |--------------------------------------------------------------------------
+    |
+    | يُعلَّم حساب المبادر مشبوهًا إن بلغ threshold خلال آخر hours ساعة:
+    | failed_logins: محاولات دخول فاشلة برقمه.
+    | registrations_per_ip: حسابات مسجّلة من IP تسجيله نفسه.
+    | recovery_requests: طلبات استعادة لحسابه.
+    |
+    */
+
+    'suspicious' => [
+        'failed_logins' => [
+            'threshold' => (int) env('SUSPICIOUS_FAILED_LOGINS', 10),
+            'hours' => (int) env('SUSPICIOUS_FAILED_LOGINS_HOURS', 24),
+        ],
+        'registrations_per_ip' => [
+            'threshold' => (int) env('SUSPICIOUS_REGISTRATIONS_PER_IP', 3),
+            'hours' => (int) env('SUSPICIOUS_REGISTRATIONS_PER_IP_HOURS', 24),
+        ],
+        'recovery_requests' => [
+            'threshold' => (int) env('SUSPICIOUS_RECOVERY_REQUESTS', 3),
+            'hours' => (int) env('SUSPICIOUS_RECOVERY_REQUESTS_HOURS', 168),
+        ],
+    ],
+
 ];
