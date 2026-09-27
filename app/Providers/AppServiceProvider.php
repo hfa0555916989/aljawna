@@ -51,9 +51,9 @@ class AppServiceProvider extends ServiceProvider
         // الوقت النسبي (diffForHumans) بالعربية في قوائم "أحدث المبادرات" (docs/SPEC.md §7).
         Carbon::setLocale(app()->getLocale());
 
-        // كشف N+1 في التطوير والاختبارات (T20): التحميل الكسول لعلاقة نموذج جاء ضمن
-        // مجموعة يرمي استثناءً بدل استعلام لكل صف. الإنتاج لا يتأثر.
-        Model::preventLazyLoading(! $this->app->isProduction());
+        // كشف N+1 في التطوير المحلي والاختبارات فقط (T20): التحميل الكسول لعلاقة نموذج
+        // جاء ضمن مجموعة يرمي استثناءً بدل استعلام لكل صف. الإنتاج والبيئات المرحلية لا تتأثر.
+        Model::preventLazyLoading($this->app->environment('local', 'testing'));
 
         $this->registerPermissionGate();
 

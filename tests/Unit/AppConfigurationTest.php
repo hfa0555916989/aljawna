@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+use App\Providers\AppServiceProvider;
+use Illuminate\Database\Eloquent\Model;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,3 +32,21 @@ test('بنية ملفات الترجمة lang/ar موجودة وكاملة', fun
             ->toBeTrue("الملف [lang/ar/{$file}] غير موجود.");
     }
 });
+
+test('كشف N+1 مفعَّل في local وtesting فقط، لا في الإنتاج ولا البيئات المرحلية (T20)', function (string $environment, bool $expected): void {
+    app()->detectEnvironment(fn (): string => $environment);
+
+    try {
+        (new AppServiceProvider(app()))->boot();
+
+        expect(Model::preventsLazyLoading())->toBe($expected);
+    } finally {
+        app()->detectEnvironment(fn (): string => 'testing');
+        Model::preventLazyLoading(true);
+    }
+})->with([
+    ['local', true],
+    ['testing', true],
+    ['staging', false],
+    ['production', false],
+]);
