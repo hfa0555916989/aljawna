@@ -206,6 +206,11 @@ function sampleBlocks(): array
             'mode' => PageBlocks::INITIATIVES_AVAILABLE,
             'limit' => 3,
         ]],
+        PageBlocks::CONTACT => ['type' => PageBlocks::CONTACT, 'data' => [
+            'heading' => 'اتصل بنا',
+            'phone' => '0512345678',
+            'show_form' => true,
+        ]],
     ];
 }
 

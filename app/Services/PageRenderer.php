@@ -9,6 +9,7 @@ use App\Models\Beneficiary;
 use App\Support\Money;
 use App\Support\PageBlocks;
 use App\Support\SafeHtml;
+use App\Support\SaudiPhone;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -65,8 +66,25 @@ class PageRenderer
             PageBlocks::INITIATIVES => ($data['mode'] ?? null) === PageBlocks::INITIATIVES_LATEST
                 ? ['transfers' => $this->stats->recentTransfers()]
                 : ['beneficiaries' => $this->availableBeneficiaries($data['limit'] ?? 3)],
+            PageBlocks::CONTACT => $this->contactLinks(is_string($data['phone'] ?? null) ? $data['phone'] : null),
             default => [],
         };
+    }
+
+    /**
+     * روابط الاتصال وواتساب لكتلة "اتصل بنا" من رقم الجهة المطبَّع في الكتلة
+     * (docs/SPEC.md FR-55). لا صلة له بأرقام المستفيدين أو المبادرين.
+     *
+     * @return array{tel_url: string|null, whatsapp_url: string|null}
+     */
+    private function contactLinks(?string $phone): array
+    {
+        $normalized = SaudiPhone::normalize($phone);
+
+        return [
+            'tel_url' => $normalized !== null ? 'tel:'.$normalized : null,
+            'whatsapp_url' => $normalized !== null ? 'https://wa.me/'.ltrim($normalized, '+') : null,
+        ];
     }
 
     /**

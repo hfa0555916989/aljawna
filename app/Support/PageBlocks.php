@@ -37,9 +37,11 @@ final class PageBlocks
 
     public const string INITIATIVES = 'initiatives';
 
+    public const string CONTACT = 'contact';
+
     public const array TYPES = [
         self::HERO, self::RICH_TEXT, self::IMAGE, self::CARDS, self::STEPS,
-        self::FAQ, self::COUNTERS, self::DIVIDER, self::INITIATIVES,
+        self::FAQ, self::COUNTERS, self::DIVIDER, self::INITIATIVES, self::CONTACT,
     ];
 
     public const array BUTTON_STYLES = ['primary', 'secondary'];
@@ -130,6 +132,11 @@ final class PageBlocks
                 'mode' => ['kind' => 'choice', 'options' => self::INITIATIVE_MODES],
                 'limit' => ['kind' => 'int', 'min' => 1, 'max' => self::MAX_INITIATIVE_CARDS, 'default' => 3],
             ],
+            self::CONTACT => [
+                'heading' => $heading,
+                'phone' => ['kind' => 'phone', 'required' => true],
+                'show_form' => ['kind' => 'bool'],
+            ],
         ];
     }
 
@@ -212,6 +219,7 @@ final class PageBlocks
             'text' => self::normalizeText($raw, (int) $spec['max'], $required, $path, $errors),
             'rich' => self::normalizeRich($raw, (int) $spec['max'], $required, $path, $errors),
             'link' => self::normalizeLink($raw, $required, $path, $errors),
+            'phone' => self::normalizePhone($raw, $required, $path, $errors),
             'bool' => filter_var($raw, FILTER_VALIDATE_BOOLEAN),
             'choice' => self::normalizeChoice($raw, (array) $spec['options'], $path, $errors),
             'choices' => self::normalizeChoices($raw, (array) $spec['options'], $required, $path, $errors),
@@ -296,6 +304,36 @@ final class PageBlocks
         self::rejectBankDetails($value, $path, $errors);
 
         return $value;
+    }
+
+    /**
+     * جوال سعودي (كتلة "اتصل بنا"، docs/SPEC.md FR-55): يُخزَّن مطبَّعًا بصيغة
+     * +9665XXXXXXXX، وهو الاستثناء الوحيد الذي يُسمح فيه بجوال في محتوى الصفحات
+     * لأنه رقم الجهة المعلن لا رقم مستفيد.
+     *
+     * @param  array<string, list<string>>  $errors
+     */
+    private static function normalizePhone(mixed $raw, bool $required, string $path, array &$errors): ?string
+    {
+        $value = self::stringOrNull($raw, $path, $errors);
+
+        if ($value === null) {
+            if ($required) {
+                self::addError($errors, $path, 'pages.validation.required');
+            }
+
+            return null;
+        }
+
+        $normalized = SaudiPhone::normalize($value);
+
+        if ($normalized === null) {
+            self::addError($errors, $path, 'pages.validation.phone');
+
+            return null;
+        }
+
+        return $normalized;
     }
 
     /**

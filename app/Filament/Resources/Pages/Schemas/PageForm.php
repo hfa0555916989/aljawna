@@ -8,6 +8,7 @@ use App\Models\Page;
 use App\Rules\BrandingImageFile;
 use App\Rules\NoBankDetailsInContent;
 use App\Rules\SafeContentLink;
+use App\Rules\SaudiPhoneNumber;
 use App\Services\BrandingImageStorage;
 use App\Support\PageBlocks;
 use App\Support\ReservedSlugs;
@@ -230,6 +231,20 @@ class PageForm
                         ->maxValue(PageBlocks::MAX_INITIATIVE_CARDS)
                         ->default(3)
                         ->visible(fn (Get $get): bool => $get('mode') !== PageBlocks::INITIATIVES_LATEST),
+                ]),
+            Block::make(PageBlocks::CONTACT)
+                ->label(__('pages.blocks.types.contact'))
+                ->icon(Heroicon::OutlinedChatBubbleLeftRight)
+                ->schema([
+                    self::text('heading', 150),
+                    TextInput::make('phone')
+                        ->label(__('pages.blocks.fields.phone'))
+                        ->helperText(__('pages.blocks.fields.phone_help'))
+                        ->required()
+                        ->maxLength(20)
+                        ->rule(new SaudiPhoneNumber)
+                        ->extraInputAttributes(['dir' => 'ltr']),
+                    Toggle::make('show_form')->label(__('pages.blocks.fields.show_form')),
                 ]),
         ];
     }
