@@ -256,7 +256,7 @@ test('الأمر يغلق الطلب بعد 24 ساعة', function (): void {
 
 test('من لا يملك recovery.handle يُرفض بـ 403', function (): void {
     $this->actingAs(User::factory()->supervisor()->withPermissions(['users.view'])->create())
-        ->get('/admin/recovery')
+        ->get(adminPath('recovery'))
         ->assertForbidden();
 });
 

@@ -152,7 +152,7 @@ test('المطابقة لا تغيّر مجموع الحوالة', function (): 
 
 test('من لا يملك transfers.view لا يرى قائمة الحوالات', function (): void {
     $this->actingAs(User::factory()->supervisor()->withPermissions(['users.view'])->create())
-        ->get('/admin/transfers')
+        ->get(adminPath('transfers'))
         ->assertForbidden();
 });
 

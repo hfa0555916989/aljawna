@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Models\User;
 use App\UserRole;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -53,6 +54,7 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'role' => UserRole::Supervisor,
+            'app_authentication_secret' => AppAuthentication::make()->generateSecret(),
         ]);
     }
 
@@ -63,6 +65,19 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'role' => UserRole::Admin,
+            'app_authentication_secret' => AppAuthentication::make()->generateSecret(),
+        ]);
+    }
+
+    /**
+     * حالة: دور لوحة لم يُعدّ التحقق بخطوتين بعد (أول دخول، أو بعد admin:reset-2fa).
+     * حالتا supervisor() وadmin() تفعّلانه افتراضيًا لأنه إلزامي للوحة.
+     */
+    public function withoutTwoFactor(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'app_authentication_secret' => null,
+            'app_authentication_recovery_codes' => null,
         ]);
     }
 

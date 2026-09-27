@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Route as RouteFacade;
 /**
  * مسارات الصفحات (slug) ومنع حجزها لمسار نظامي (docs/SPEC.md FR-55).
  *
- * المحجوز = قائمة security.pages.reserved_slugs + أول مقطع ثابت من كل مسار مسجّل
- * (ومنه لوحة الإدارة و /up و livewire)، فلا يُنشأ مسار نظامي جديد تحجبه صفحة
+ * المحجوز = قائمة security.pages.reserved_slugs + مسار لوحة الإدارة (ADMIN_PATH)
+ * صراحةً + أول مقطع ثابت من كل مسار مسجّل (ومنه /up و livewire)، فلا يُنشأ مسار نظامي جديد تحجبه صفحة
  * قديمة ولا العكس. ومسار الصفحات GET /{slug} مسجَّل أخيرًا (fallback) احتياطًا.
  */
 final class ReservedSlugs
@@ -57,7 +57,11 @@ final class ReservedSlugs
         /** @var list<string> $configured */
         $configured = config('security.pages.reserved_slugs', []);
 
-        return array_values(array_unique([...$configured, ...self::routeSegments()]));
+        return array_values(array_unique([
+            ...$configured,
+            strtolower((string) config('admin.path')),
+            ...self::routeSegments(),
+        ]));
     }
 
     /**

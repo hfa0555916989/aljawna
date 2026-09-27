@@ -9,9 +9,11 @@ use App\Http\Controllers\BrandAssetController;
 use App\Http\Controllers\ShowPageController;
 use App\Http\Controllers\ShowTransferReceiptController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Middleware\EnsureTwoFactorAuthentication;
 use App\Livewire\Auth\ForgotPassword;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
+use App\Livewire\Auth\ResetAdminPassword;
 use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Beneficiaries\Index as BeneficiaryIndex;
 use App\Livewire\Beneficiaries\Show as BeneficiaryShow;
@@ -52,6 +54,11 @@ Route::middleware('guest')->group(function (): void {
     Route::livewire('/reset/{token}', ResetPassword::class)
         ->where('token', '[A-Za-z0-9\-_]+')
         ->name('password.reset');
+
+    // رابط طوارئ من php artisan admin:reset-link فقط، ولا رابط له في أي صفحة.
+    Route::livewire('/admin-reset/{token}', ResetAdminPassword::class)
+        ->where('token', '[A-Za-z0-9\-_]+')
+        ->name('admin.password.reset');
 });
 
 Route::middleware('auth')->group(function (): void {
@@ -65,16 +72,26 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('signed')
         ->name('transfers.receipt');
 
-    Route::put('/admin/supervisors/{supervisor}/permissions', UpdateSupervisorPermissionsController::class)
-        ->whereNumber('supervisor')
-        ->middleware('can:'.PermissionKey::SupervisorsManage->value)
-        ->name('admin.supervisors.permissions.update');
-
-    Route::get('/admin/content/pages/{page}/preview', PreviewPageController::class)
-        ->whereNumber('page')
-        ->middleware('can:'.PermissionKey::ContentManage->value)
-        ->name('admin.pages.preview');
 });
+
+// مسارات إدارة خارج Filament تحت مسار اللوحة نفسه (ADMIN_PATH)، وبنفس شروطها:
+// 404 لمن لا يملك دور اللوحة، والتحقق بخطوتين إلزامي (docs/DECISIONS.md).
+Route::prefix((string) config('admin.path'))
+    ->middleware(['auth', EnsureTwoFactorAuthentication::class])
+    ->group(function (): void {
+        Route::put('/supervisors/{supervisor}/permissions', UpdateSupervisorPermissionsController::class)
+            ->whereNumber('supervisor')
+            ->middleware('can:'.PermissionKey::SupervisorsManage->value)
+            ->name('admin.supervisors.permissions.update');
+
+        Route::get('/content/pages/{page}/preview', PreviewPageController::class)
+            ->whereNumber('page')
+            ->middleware('can:'.PermissionKey::ContentManage->value)
+            ->name('admin.pages.preview');
+    });
+
+// صفحة دخول Filament أُلغيت: الدخول موحّد عبر /login، والرابط القديم يُحوَّل إليه.
+Route::redirect('/'.config('admin.path').'/login', '/login')->name('admin.login.redirect');
 
 Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 

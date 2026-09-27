@@ -25,7 +25,7 @@ beforeEach(function (): void {
 });
 
 test('نموذج التسجيل يعرض الحقول الخمسة بأسمائها ثم المبلغ والمواعيد', function (): void {
-    $this->get('/admin/beneficiaries/create')
+    $this->get(adminPath('beneficiaries/create'))
         ->assertOk()
         ->assertSeeInOrder([
             'اسم المستفيد المنشور',

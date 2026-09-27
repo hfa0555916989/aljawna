@@ -5,23 +5,54 @@ declare(strict_types=1);
 namespace App\Livewire\Auth;
 
 use App\Actions\Auth\LoginUser;
+use App\Models\User;
+use App\Services\Audit;
+use App\Support\TwoFactorSession;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
+use Filament\Facades\Filament;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * صفحة دخول المبادر /login بالجوال وكلمة المرور (docs/SPEC.md §3, FR-5).
- * المشرف والمدير يُحوَّلان مباشرة إلى لوحة الإدارة /admin.
+ * صفحة الدخول الموحّدة /login للجميع بالجوال وكلمة المرور (docs/SPEC.md §3, FR-5).
+ *
+ * أدوار اللوحة (مشرف أو مدير) تمرّ بخطوة ثانية إن فعّلت التحقق بخطوتين: رمز من
+ * تطبيق المصادقة أو رمز استرداد، يتحقق منه مزوّد Filament نفسه (AppAuthentication).
+ * ومن لم يفعّله بعد يدخل ثم يُلزَم بإعداده قبل أي صفحة في اللوحة (docs/DECISIONS.md).
+ * بعد الدخول: أدوار اللوحة إلى اللوحة، والمبادر إلى /dashboard.
  */
 #[Title('تسجيل الدخول')]
 class Login extends Component
 {
+    /**
+     * مهلة إدخال رمز الخطوة الثانية بعد كلمة المرور، ثم يبدأ الدخول من جديد.
+     */
+    public const int CHALLENGE_SECONDS = 600;
+
+    public const string RECOVERY_CODE_AUDIT_ACTION = 'auth.recovery_code_used';
+
     public string $phone = '';
 
     public string $password = '';
+
+    public string $code = '';
+
+    public string $recoveryCode = '';
+
+    public bool $useRecoveryCode = false;
+
+    /**
+     * معرّف صاحب الخطوة الثانية مشفَّرًا، كما في صفحة دخول Filament.
+     */
+    #[Locked]
+    public ?string $challengedUser = null;
 
     public function login(LoginUser $loginUser): void
     {
@@ -30,28 +61,144 @@ class Login extends Component
             'password' => ['required', 'string', 'max:255'],
         ]);
 
+        $ip = (string) request()->ip();
+
         try {
-            $user = $loginUser->handle($this->phone, $this->password, (string) request()->ip());
+            $user = $loginUser->verifyCredentials($this->phone, $this->password, $ip);
         } catch (ValidationException $exception) {
             $this->reset('password');
 
             throw $exception;
         }
 
-        Auth::login($user);
-        Session::regenerate();
+        $this->reset('password');
 
-        if ($user->hasPanelRole()) {
-            $this->redirect($user->homeUrl());
+        if ($user->hasPanelRole() && $user->hasTwoFactorEnabled()) {
+            $this->challengedUser = Crypt::encryptString($user->getKey().'|'.now()->getTimestamp());
 
             return;
         }
 
-        $this->redirectIntended($user->homeUrl());
+        $loginUser->recordSuccess($user, $ip);
+
+        $this->completeLogin($user, passedTwoFactor: false);
+    }
+
+    public function verifyTwoFactor(LoginUser $loginUser): void
+    {
+        $user = $this->challengedUserOrRestart();
+
+        if ($user === null) {
+            return;
+        }
+
+        $field = $this->useRecoveryCode ? 'recoveryCode' : 'code';
+
+        $this->validate([
+            $field => ['required', 'string', 'max:64'],
+        ]);
+
+        $provider = $this->appAuthentication();
+        $ip = (string) request()->ip();
+
+        try {
+            $loginUser->verifySecondFactor($user, $ip, fn (): bool => $this->useRecoveryCode
+                ? $provider->verifyRecoveryCode(trim($this->recoveryCode), $user)
+                : $provider->verifyCode(preg_replace('/\s+/', '', $this->code) ?? '', $provider->getSecret($user), shouldPreventCodeReuse: true),
+                $field,
+            );
+        } catch (ValidationException $exception) {
+            $this->reset('code', 'recoveryCode');
+
+            throw $exception;
+        }
+
+        $loginUser->recordSuccess($user, $ip);
+
+        if ($this->useRecoveryCode) {
+            Audit::record(self::RECOVERY_CODE_AUDIT_ACTION, $user, [
+                'remaining' => count($user->fresh()?->getAppAuthenticationRecoveryCodes() ?? []),
+            ], $user);
+        }
+
+        $this->completeLogin($user, passedTwoFactor: true);
+    }
+
+    public function toggleRecoveryCode(): void
+    {
+        $this->useRecoveryCode = ! $this->useRecoveryCode;
+        $this->reset('code', 'recoveryCode');
+        $this->resetErrorBag();
+    }
+
+    public function cancelTwoFactor(): void
+    {
+        $this->reset();
+        $this->resetErrorBag();
     }
 
     public function render(): View
     {
         return view('livewire.auth.login');
+    }
+
+    private function completeLogin(User $user, bool $passedTwoFactor): void
+    {
+        Auth::login($user);
+        Session::regenerate();
+
+        if ($passedTwoFactor) {
+            TwoFactorSession::markPassed();
+        }
+
+        $this->redirect($this->destinationFor($user));
+    }
+
+    /**
+     * أدوار اللوحة: الوجهة المقصودة إن كانت داخل اللوحة، وإلا اللوحة نفسها.
+     * المبادر: الوجهة المقصودة ما لم تكن داخل اللوحة (ستعطيه 404)، وإلا /dashboard.
+     */
+    private function destinationFor(User $user): string
+    {
+        $intended = Session::pull('url.intended');
+        $panelUrl = rtrim(url((string) config('admin.path')), '/');
+        $isPanelUrl = is_string($intended) && ($intended === $panelUrl || str_starts_with($intended, $panelUrl.'/'));
+
+        if ($user->hasPanelRole()) {
+            return $isPanelUrl ? $intended : $user->homeUrl();
+        }
+
+        return is_string($intended) && ! $isPanelUrl ? $intended : $user->homeUrl();
+    }
+
+    private function challengedUserOrRestart(): ?User
+    {
+        $user = null;
+
+        try {
+            [$id, $issuedAt] = array_pad(explode('|', Crypt::decryptString((string) $this->challengedUser), 2), 2, '0');
+
+            if (now()->getTimestamp() - (int) $issuedAt <= self::CHALLENGE_SECONDS) {
+                $user = User::query()->find((int) $id);
+            }
+        } catch (DecryptException) {
+            //
+        }
+
+        if (! $user instanceof User || ! $user->hasPanelRole() || ! $user->hasTwoFactorEnabled()) {
+            $this->reset();
+            $this->addError('phone', __('auth.two_factor.expired'));
+
+            return null;
+        }
+
+        return $user;
+    }
+
+    private function appAuthentication(): AppAuthentication
+    {
+        $provider = Filament::getPanel('admin')->getMultiFactorAuthenticationProviders()['app'] ?? null;
+
+        return $provider instanceof AppAuthentication ? $provider : AppAuthentication::make()->recoverable();
     }
 }

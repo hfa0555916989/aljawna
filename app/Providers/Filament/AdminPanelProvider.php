@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Filament\AvatarProviders\InitialAvatarProvider;
-use App\Filament\Pages\Auth\Login;
 use App\Http\Middleware\AuthenticateAdminPanel;
 use App\Http\Middleware\EnsureSessionEpoch;
+use App\Http\Middleware\EnsureTwoFactorAuthentication;
 use App\Models\SiteBranding;
 use App\Services\BrandingCss;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -34,9 +35,16 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
-            ->path('admin')
+            // مسار غير متوقع من ADMIN_PATH، وبلا صفحة دخول خاصة: الدخول الموحّد عبر /login
+            // للجميع، والزائر يُعاد إليه (AuthenticateAdminPanel، docs/DECISIONS.md).
+            ->path((string) config('admin.path'))
             ->viteTheme('resources/css/filament/admin/theme.css')
-            ->login(Login::class)
+            // TOTP إلزامي لأدوار اللوحة مع رموز استرداد. التحدي نفسه في /login، وإعداده
+            // عند أول دخول في صفحة Filament الإلزامية (EnsureTwoFactorAuthentication).
+            ->multiFactorAuthentication(
+                AppAuthentication::make()->recoverable(),
+                isRequired: true,
+            )
             ->brandName(fn (): string => SiteBranding::current()->initiative_name)
             ->brandLogo(fn () => view('filament.admin.logo'))
             ->darkModeBrandLogo(fn () => view('filament.admin.logo-dark'))
@@ -87,6 +95,7 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 AuthenticateAdminPanel::class,
                 EnsureSessionEpoch::class,
+                EnsureTwoFactorAuthentication::class,
             ], isPersistent: true);
     }
 }

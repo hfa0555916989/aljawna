@@ -8,7 +8,7 @@ use Database\Seeders\PermissionSeeder;
 
 /*
 |--------------------------------------------------------------------------
-| PUT /admin/supervisors/{id}/permissions — الفحص على الخادم (T03 — docs/SPEC.md §10)
+| PUT {ADMIN_PATH}/supervisors/{id}/permissions — الفحص على الخادم (T03 — docs/SPEC.md §10)
 |--------------------------------------------------------------------------
 */
 
@@ -26,9 +26,9 @@ function updatePermissionsUrl(User $supervisor): string
 
 test('المدير يعدّل الصلاحيات عبر المسار', function (): void {
     $this->actingAs($this->admin)
-        ->from('/admin')
+        ->from(adminPath())
         ->put(updatePermissionsUrl($this->target), ['permissions' => ['stats.view']])
-        ->assertRedirect('/admin')
+        ->assertRedirect(adminPath())
         ->assertSessionHas('status', 'تم تحديث الصلاحيات.');
 
     expect($this->target->fresh()->permissions->pluck('name')->all())->toBe(['stats.view']);
@@ -44,10 +44,10 @@ test('الوصول المباشر بالرابط لمشرف بلا supervisors.m
     expect($this->target->fresh()->permissions->pluck('name')->all())->toBe(['users.view']);
 });
 
-test('المبادر يُرفض 403', function (): void {
+test('المبادر يحصل على 404 (مسار داخل منطقة الإدارة)', function (): void {
     $this->actingAs(User::factory()->create())
         ->put(updatePermissionsUrl($this->target), ['permissions' => []])
-        ->assertForbidden();
+        ->assertNotFound();
 });
 
 test('الزائر يُحوَّل إلى الدخول', function (): void {
@@ -128,5 +128,5 @@ test('تعطيل المشرف يسري فورًا في الطلب التالي',
 
     $this->actingAs($manager->fresh())
         ->put(updatePermissionsUrl($this->target), ['permissions' => []])
-        ->assertForbidden();
+        ->assertNotFound();
 });

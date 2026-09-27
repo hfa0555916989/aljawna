@@ -246,3 +246,11 @@ function assertNoBankData(Testable $component, Beneficiary $beneficiary): void
         expect($payload)->not->toContain($secret);
     }
 }
+
+/**
+ * رابط داخل لوحة الإدارة على مسارها من ADMIN_PATH (لا /admin ثابتًا).
+ */
+function adminPath(string $path = ''): string
+{
+    return '/'.config('admin.path').($path === '' ? '' : '/'.ltrim($path, '/'));
+}

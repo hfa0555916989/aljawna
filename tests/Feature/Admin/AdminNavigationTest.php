@@ -26,18 +26,18 @@ const OTHER_NUMBER_LABEL = 'صفحة اختبار الرقم المختلف';
 test('المدير يرى كل عناصر التنقل ويفتح صفحاتها', function (): void {
     $this->actingAs(User::factory()->admin()->create());
 
-    $this->get('/admin')
+    $this->get(adminPath())
         ->assertOk()
         ->assertSee(SECURITY_LABEL)
         ->assertSee(OTHER_NUMBER_LABEL);
 
-    $this->get('/admin/fixture-security')->assertOk();
-    $this->get('/admin/fixture-other-number')->assertOk();
+    $this->get(adminPath('fixture-security'))->assertOk();
+    $this->get(adminPath('fixture-other-number'))->assertOk();
 });
 
 test('المشرف يرى عنصر ما مُنح فقط', function (): void {
     $this->actingAs(User::factory()->supervisor()->withPermissions(['security.view'])->create())
-        ->get('/admin')
+        ->get(adminPath())
         ->assertOk()
         ->assertSee(SECURITY_LABEL)
         ->assertDontSee(OTHER_NUMBER_LABEL);
@@ -45,7 +45,7 @@ test('المشرف يرى عنصر ما مُنح فقط', function (): void {
 
 test('مشرف بلا صلاحية لا يرى أي عنصر محمي', function (): void {
     $this->actingAs(User::factory()->supervisor()->create())
-        ->get('/admin')
+        ->get(adminPath())
         ->assertOk()
         ->assertDontSee(SECURITY_LABEL)
         ->assertDontSee(OTHER_NUMBER_LABEL);
@@ -53,46 +53,46 @@ test('مشرف بلا صلاحية لا يرى أي عنصر محمي', function
 
 test('الوصول المباشر بالرابط لصفحة غير ممنوحة يُرفض بـ 403', function (): void {
     $this->actingAs(User::factory()->supervisor()->withPermissions(['users.view'])->create())
-        ->get('/admin/fixture-security')
+        ->get(adminPath('fixture-security'))
         ->assertForbidden();
 });
 
 test('المشرف يفتح الصفحة الممنوحة مباشرة بالرابط', function (): void {
     $this->actingAs(User::factory()->supervisor()->withPermissions(['security.view'])->create())
-        ->get('/admin/fixture-security')
+        ->get(adminPath('fixture-security'))
         ->assertOk();
 });
 
 test('صلاحية بلا اعتماديتها لا تُظهر العنصر وتُرفض بـ 403', function (): void {
     $this->actingAs(User::factory()->supervisor()->withPermissions(['recovery.other_number'])->create());
 
-    $this->get('/admin')->assertDontSee(OTHER_NUMBER_LABEL);
-    $this->get('/admin/fixture-other-number')->assertForbidden();
+    $this->get(adminPath())->assertDontSee(OTHER_NUMBER_LABEL);
+    $this->get(adminPath('fixture-other-number'))->assertForbidden();
 });
 
 test('صلاحية مع اعتماديتها تُظهر العنصر وتفتح الصفحة', function (): void {
     $this->actingAs(User::factory()->supervisor()->withPermissions(['recovery.handle', 'recovery.other_number'])->create());
 
-    $this->get('/admin')->assertSee(OTHER_NUMBER_LABEL);
-    $this->get('/admin/fixture-other-number')->assertOk();
+    $this->get(adminPath())->assertSee(OTHER_NUMBER_LABEL);
+    $this->get(adminPath('fixture-other-number'))->assertOk();
 });
 
 test('سحب الصلاحية يسري فورًا على الطلب التالي بالرابط المباشر', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['security.view'])->create();
 
-    $this->actingAs($supervisor)->get('/admin/fixture-security')->assertOk();
+    $this->actingAs($supervisor)->get(adminPath('fixture-security'))->assertOk();
 
     $supervisor->revokePermissionTo('security.view');
 
-    $this->actingAs($supervisor->fresh())->get('/admin/fixture-security')->assertForbidden();
+    $this->actingAs($supervisor->fresh())->get(adminPath('fixture-security'))->assertForbidden();
 });
 
-test('المبادر لا يصل إلى الصفحة المحمية ويُحوَّل إلى /dashboard', function (): void {
+test('المبادر لا يصل إلى الصفحة المحمية (404)', function (): void {
     $this->actingAs(User::factory()->create())
-        ->get('/admin/fixture-security')
-        ->assertRedirect(route('dashboard'));
+        ->get(adminPath('fixture-security'))
+        ->assertNotFound();
 });
 
 test('الزائر يُحوَّل إلى الدخول عند فتح صفحة محمية', function (): void {
-    $this->get('/admin/fixture-security')->assertRedirect('/admin/login');
+    $this->get(adminPath('fixture-security'))->assertRedirect(route('login'));
 });

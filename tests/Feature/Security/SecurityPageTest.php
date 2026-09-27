@@ -23,7 +23,7 @@ use Livewire\Livewire;
 | وبسبب محفوظ في سجل التدقيق. التعطيل ينهي الجلسات ويمنع الدخول فورًا.
 */
 
-const SECURITY_PAGE = '/admin/security';
+const SECURITY_PAGE = 'security';
 
 beforeEach(function (): void {
     $this->seed(PermissionSeeder::class);
@@ -48,7 +48,7 @@ function suspiciousInitiator(array $attributes = []): User
 test('من لا يملك security.view يُرفض بـ 403 ولو ملك users.suspend', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['users.suspend'])->create();
 
-    $this->actingAs($supervisor)->get(SECURITY_PAGE)->assertForbidden();
+    $this->actingAs($supervisor)->get(adminPath(SECURITY_PAGE))->assertForbidden();
 
     expect(Security::canAccess())->toBeFalse();
 });
@@ -56,21 +56,21 @@ test('من لا يملك security.view يُرفض بـ 403 ولو ملك users.s
 test('المشرف الممنوح security.view يفتح الصفحة', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['security.view'])->create();
 
-    $this->actingAs($supervisor)->get(SECURITY_PAGE)->assertOk()->assertSee(__('security.navigation'));
+    $this->actingAs($supervisor)->get(adminPath(SECURITY_PAGE))->assertOk()->assertSee(__('security.navigation'));
 });
 
 test('المدير يفتح الصفحة ضمنيًا', function (): void {
-    $this->actingAs(User::factory()->admin()->create())->get(SECURITY_PAGE)->assertOk();
+    $this->actingAs(User::factory()->admin()->create())->get(adminPath(SECURITY_PAGE))->assertOk();
 });
 
-test('المبادر لا يصل إلى الصفحة ويُحوَّل إلى لوحته', function (): void {
-    $this->actingAs(User::factory()->create())->get(SECURITY_PAGE)->assertRedirect(route('dashboard'));
+test('المبادر لا يصل إلى الصفحة (404)', function (): void {
+    $this->actingAs(User::factory()->create())->get(adminPath(SECURITY_PAGE))->assertNotFound();
 });
 
-test('المشرف المعطَّل يُرفض بـ 403 ولو ملك security.view', function (): void {
+test('المشرف المعطَّل يحصل على 404 ولو ملك security.view', function (): void {
     $supervisor = User::factory()->supervisor()->inactive()->withPermissions(['security.view'])->create();
 
-    $this->actingAs($supervisor)->get(SECURITY_PAGE)->assertForbidden();
+    $this->actingAs($supervisor)->get(adminPath(SECURITY_PAGE))->assertNotFound();
 });
 
 test('الصفحة تعرض الحساب المشبوه وقاعدته ورقمه بالاتجاه LTR', function (): void {

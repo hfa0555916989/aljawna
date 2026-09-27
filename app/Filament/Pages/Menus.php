@@ -33,7 +33,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 
 /**
- * قائمتا الرأس والتذييل /admin/content/menus (docs/SPEC.md FR-54) بصلاحية content.manage.
+ * قائمتا الرأس والتذييل {ADMIN_PATH}/content/menus (docs/SPEC.md FR-54) بصلاحية content.manage.
  *
  * كل حفظ يكتب نسخة في menu_revisions، ويمكن استرجاع أي نسخة بتأكيد قبل التنفيذ.
  * الوجهة صفحة من منشئ الصفحات أو رابط http/https/tel/wa.me أو مسار داخلي فقط.

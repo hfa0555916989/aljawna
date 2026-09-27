@@ -71,14 +71,14 @@ test('شاشات المنشئ والقوائم والمعاينة 403 لمشرف
     $supervisor = User::factory()->supervisor()->withPermissions(['beneficiaries.manage'])->create();
 
     $this->actingAs($supervisor)
-        ->get(str_replace('{page}', (string) $page->id, $uri))
+        ->get(adminPath(str_replace('{page}', (string) $page->id, $uri)))
         ->assertForbidden();
 })->with([
-    'قائمة الصفحات' => ['/admin/content/pages'],
-    'إنشاء صفحة' => ['/admin/content/pages/create'],
-    'تحرير صفحة' => ['/admin/content/pages/{page}/edit'],
-    'المعاينة' => ['/admin/content/pages/{page}/preview'],
-    'القوائم' => ['/admin/content/menus'],
+    'قائمة الصفحات' => ['content/pages'],
+    'إنشاء صفحة' => ['content/pages/create'],
+    'تحرير صفحة' => ['content/pages/{page}/edit'],
+    'المعاينة' => ['content/pages/{page}/preview'],
+    'القوائم' => ['content/menus'],
 ]);
 
 test('المعاينة تحوّل الزائر إلى الدخول ولا تعرض المسودة', function (): void {
@@ -94,7 +94,7 @@ test('من يملك content.manage يفتح شاشات المنشئ والقوا
 
     $this->actingAs($actor);
 
-    foreach (['/admin/content/pages', '/admin/content/pages/create', "/admin/content/pages/{$page->id}/edit", '/admin/content/menus'] as $uri) {
+    foreach ([adminPath('content/pages'), adminPath('content/pages/create'), adminPath("content/pages/{$page->id}/edit"), adminPath('content/menus')] as $uri) {
         $this->get($uri)->assertOk();
     }
 
@@ -297,6 +297,6 @@ test('خريطة الموقع تضم الرئيسية والمبادرات وا�
         ->assertSee('<loc>'.route('beneficiaries.index').'</loc>', false)
         ->assertSee('<loc>'.url('/published-page').'</loc>', false)
         ->assertDontSee('draft-page')
-        ->assertDontSee('/admin')
+        ->assertDontSee(adminPath())
         ->assertDontSee('/login');
 });

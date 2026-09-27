@@ -19,7 +19,7 @@ use Livewire\Livewire;
 | كل مبادرة وتحتها إيصالاتها، لمن يملك transfers.view العامة لا لمنشئ المبادرة.
 */
 
-const RECEIPTS_PAGE = '/admin/beneficiary-receipts';
+const RECEIPTS_PAGE = 'beneficiary-receipts';
 
 beforeEach(function (): void {
     $this->seed(PermissionSeeder::class);
@@ -72,7 +72,7 @@ test('كل إيصال يظهر تحت مبادرته وحدها، والمباد
     $secondTransfers = Transfer::factory()->count(2)->for($second)->create();
 
     $groups = receiptsGroupedInPage(
-        $this->actingAs($this->viewer)->get(RECEIPTS_PAGE)->assertOk()->getContent() ?: '',
+        $this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE))->assertOk()->getContent() ?: '',
     );
 
     expect($groups)->toHaveCount(3)
@@ -89,7 +89,7 @@ test('رأس كل مبادرة يعرض عدد حوالاتها ومجموعها
     Transfer::factory()->for($first)->create(['amount' => '250.50']);
     Transfer::factory()->for($second)->create(['amount' => '75.00']);
 
-    $this->actingAs($this->viewer)->get(RECEIPTS_PAGE)
+    $this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE))
         ->assertOk()
         ->assertSeeInOrder([$first->display_name, 'حوالتان', '1,250.50'])
         ->assertSeeInOrder([$second->display_name, 'حوالة واحدة', '75'])
@@ -104,7 +104,7 @@ test('المشرف الممنوح transfers.view يرى إيصالات كل ال
 
     expect(Beneficiary::query()->where('created_by', $this->viewer->id)->exists())->toBeFalse();
 
-    $groups = receiptsGroupedInPage($this->actingAs($this->viewer)->get(RECEIPTS_PAGE)->assertOk()->getContent() ?: '');
+    $groups = receiptsGroupedInPage($this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE))->assertOk()->getContent() ?: '');
 
     expect(array_keys($groups))->toEqualCanonicalizing([$byCreator->id, $byAdmin->id])
         ->and($groups[$byCreator->id])->toHaveCount(1)
@@ -115,35 +115,35 @@ test('منشئ المبادرة بلا transfers.view يُمنع بـ 403 ولا
     $beneficiary = Beneficiary::factory()->approved()->create(['created_by' => $this->creator->id]);
     Transfer::factory()->for($beneficiary)->create();
 
-    $this->actingAs($this->creator)->get(RECEIPTS_PAGE)->assertForbidden();
-    $this->actingAs($this->creator)->get('/admin')->assertOk()->assertDontSee('إيصالات المبادرات');
+    $this->actingAs($this->creator)->get(adminPath(RECEIPTS_PAGE))->assertForbidden();
+    $this->actingAs($this->creator)->get(adminPath())->assertOk()->assertDontSee('إيصالات المبادرات');
 });
 
 test('المدير يفتح الصفحة ويرى عنصر التنقل', function (): void {
     $admin = User::factory()->admin()->create();
 
-    $this->actingAs($admin)->get('/admin')->assertSee('إيصالات المبادرات');
-    $this->actingAs($admin)->get(RECEIPTS_PAGE)->assertOk();
-    $this->actingAs($this->viewer)->get('/admin')->assertSee('إيصالات المبادرات');
+    $this->actingAs($admin)->get(adminPath())->assertSee('إيصالات المبادرات');
+    $this->actingAs($admin)->get(adminPath(RECEIPTS_PAGE))->assertOk();
+    $this->actingAs($this->viewer)->get(adminPath())->assertSee('إيصالات المبادرات');
 });
 
 test('سحب transfers.view يمنع الصفحة فورًا', function (): void {
-    $this->actingAs($this->viewer)->get(RECEIPTS_PAGE)->assertOk();
+    $this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE))->assertOk();
 
     $this->viewer->revokePermissionTo('transfers.view');
 
-    $this->actingAs($this->viewer->fresh())->get(RECEIPTS_PAGE)->assertForbidden();
+    $this->actingAs($this->viewer->fresh())->get(adminPath(RECEIPTS_PAGE))->assertForbidden();
 });
 
-test('المبادر لا يصل إلى الصفحة', function (): void {
-    $this->actingAs(User::factory()->create())->get(RECEIPTS_PAGE)->assertRedirect(route('dashboard'));
+test('المبادر لا يصل إلى الصفحة (404)', function (): void {
+    $this->actingAs(User::factory()->create())->get(adminPath(RECEIPTS_PAGE))->assertNotFound();
 });
 
 test('رابط الإيصال موقّع وينتهي بعد 10 دقائق، ويفتحه صاحب transfers.view', function (): void {
     Storage::disk('receipts')->put('Receipt123.jpg', jpegBytes());
     $transfer = Transfer::factory()->create(['receipt_path' => 'Receipt123.jpg']);
 
-    $html = $this->actingAs($this->viewer)->get(RECEIPTS_PAGE)->assertOk()->getContent() ?: '';
+    $html = $this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE))->assertOk()->getContent() ?: '';
 
     preg_match('#href="([^"]*/receipts/'.$transfer->id.'\?[^"]+)"#', $html, $match);
     $url = html_entity_decode($match[1] ?? '');
@@ -165,7 +165,7 @@ test('يظهر اسم المبادر المحوِّل كاملًا بلا جوا
     $initiator = User::factory()->create(['full_name' => 'مشعل عبدالله خالد العجاوني']);
     Transfer::factory()->for($initiator)->repeated()->create(['bank_reference' => 'REF-777']);
 
-    $this->actingAs($this->viewer)->get(RECEIPTS_PAGE)
+    $this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE))
         ->assertOk()
         ->assertSee('مشعل عبدالله خالد العجاوني')
         ->assertDontSee($initiator->phone)
@@ -182,7 +182,7 @@ test('المبادرات الأحدث حوالةً أولًا، ثم التي ب
     Transfer::factory()->for($older)->create(['created_at' => now()->subDays(2)]);
     Transfer::factory()->for($newer)->create(['created_at' => now()->subHour()]);
 
-    $groups = receiptsGroupedInPage($this->actingAs($this->viewer)->get(RECEIPTS_PAGE)->getContent() ?: '');
+    $groups = receiptsGroupedInPage($this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE))->getContent() ?: '');
 
     expect(array_keys($groups))->toBe([$newer->id, $older->id, $empty->id]);
 });
@@ -199,7 +199,7 @@ test('حوالات كل مبادرة مرقّمة 15 في الصفحة وبتر�
     $newestFirst = $crowdedTransfers->sortByDesc('transferred_on')->pluck('id')->values();
     $pageName = BeneficiaryReceipts::transfersPageName($crowded);
 
-    $firstHtml = $this->actingAs($this->viewer)->get(RECEIPTS_PAGE)->assertOk()->getContent() ?: '';
+    $firstHtml = $this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE))->assertOk()->getContent() ?: '';
     $firstPage = receiptsGroupedInPage($firstHtml);
 
     expect(BeneficiaryReceipts::TRANSFERS_PER_PAGE)->toBe(15)
@@ -210,7 +210,7 @@ test('حوالات كل مبادرة مرقّمة 15 في الصفحة وبتر�
         ->and($firstHtml)->toContain('17 حوالة');
 
     $secondPage = receiptsGroupedInPage(
-        $this->actingAs($this->viewer)->get(RECEIPTS_PAGE.'?'.$pageName.'=2')->assertOk()->getContent() ?: '',
+        $this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE).'?'.$pageName.'=2')->assertOk()->getContent() ?: '',
     );
 
     expect($secondPage[$crowded->id])->toBe($newestFirst->slice(15)->sort()->values()->all())
@@ -236,8 +236,8 @@ test('زر الصفحة التالية داخل المبادرة ينقل حوا
 test('الصفحة مقسّمة إلى 10 مبادرات في كل صفحة', function (): void {
     Beneficiary::factory()->approved()->count(11)->create();
 
-    $firstPage = receiptsGroupedInPage($this->actingAs($this->viewer)->get(RECEIPTS_PAGE)->getContent() ?: '');
-    $secondPage = receiptsGroupedInPage($this->actingAs($this->viewer)->get(RECEIPTS_PAGE.'?page=2')->getContent() ?: '');
+    $firstPage = receiptsGroupedInPage($this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE))->getContent() ?: '');
+    $secondPage = receiptsGroupedInPage($this->actingAs($this->viewer)->get(adminPath(RECEIPTS_PAGE).'?page=2')->getContent() ?: '');
 
     expect($firstPage)->toHaveCount(10)
         ->and($secondPage)->toHaveCount(1)

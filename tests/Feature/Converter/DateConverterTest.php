@@ -17,7 +17,7 @@ use Livewire\Livewire;
 | واضحة عند يوم هجري غير موجود في شهره (مثل 30 في شهر من 29 يومًا).
 */
 
-const CONVERTER_PAGE = '/admin/converter';
+const CONVERTER_PAGE = 'converter';
 
 beforeEach(function (): void {
     $this->seed(PermissionSeeder::class);
@@ -32,35 +32,35 @@ function converterOfficer(): User
 test('من لا يملك converter.use يُرفض بـ 403', function (): void {
     $supervisor = User::factory()->supervisor()->create();
 
-    $this->actingAs($supervisor)->get(CONVERTER_PAGE)->assertForbidden();
+    $this->actingAs($supervisor)->get(adminPath(CONVERTER_PAGE))->assertForbidden();
 });
 
 test('المشرف الممنوح converter.use يفتح الصفحة', function (): void {
-    $this->actingAs(converterOfficer())->get(CONVERTER_PAGE)->assertOk()->assertSee(__('converter.navigation'));
+    $this->actingAs(converterOfficer())->get(adminPath(CONVERTER_PAGE))->assertOk()->assertSee(__('converter.navigation'));
 });
 
 test('المدير يفتح الصفحة ضمنيًا دون منح مباشر', function (): void {
-    $this->actingAs(User::factory()->admin()->create())->get(CONVERTER_PAGE)->assertOk();
+    $this->actingAs(User::factory()->admin()->create())->get(adminPath(CONVERTER_PAGE))->assertOk();
 
     expect(Converter::canAccess())->toBeTrue();
 });
 
-test('المبادر لا يصل إلى الصفحة ويُحوَّل إلى لوحته', function (): void {
-    $this->actingAs(User::factory()->create())->get(CONVERTER_PAGE)->assertRedirect(route('dashboard'));
+test('المبادر لا يصل إلى الصفحة (404)', function (): void {
+    $this->actingAs(User::factory()->create())->get(adminPath(CONVERTER_PAGE))->assertNotFound();
 });
 
-test('الزائر يُحوَّل إلى دخول اللوحة', function (): void {
-    $this->get(CONVERTER_PAGE)->assertRedirect('/admin/login');
+test('الزائر يُحوَّل إلى صفحة الدخول الموحّدة', function (): void {
+    $this->get(adminPath(CONVERTER_PAGE))->assertRedirect(route('login'));
 });
 
 test('سحب converter.use يمنع الصفحة فورًا', function (): void {
     $supervisor = converterOfficer();
 
-    $this->actingAs($supervisor)->get(CONVERTER_PAGE)->assertOk();
+    $this->actingAs($supervisor)->get(adminPath(CONVERTER_PAGE))->assertOk();
 
     $supervisor->revokePermissionTo('converter.use');
 
-    $this->actingAs($supervisor->fresh())->get(CONVERTER_PAGE)->assertForbidden();
+    $this->actingAs($supervisor->fresh())->get(adminPath(CONVERTER_PAGE))->assertForbidden();
 });
 
 test('يحوّل تواريخ ميلادية معروفة إلى الهجري الصحيح (أم القرى)', function (string $gregorian, string $hijri, string $weekday): void {

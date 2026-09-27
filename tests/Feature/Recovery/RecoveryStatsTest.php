@@ -24,7 +24,7 @@ use Livewire\Livewire;
 | (الاستعادات المنجزة فعليًا، منسوبة إلى المشرف الذي أصدر الرابط المُستخدَم).
 */
 
-const STATS_PAGE = '/admin/recovery/stats';
+const STATS_PAGE = 'recovery/stats';
 
 beforeEach(function (): void {
     $this->seed(PermissionSeeder::class);
@@ -70,19 +70,19 @@ function statsToken(PasswordResetRequest $request, User $issuer, CarbonImmutable
 test('من لا يملك stats.recovery يُرفض بـ 403', function (): void {
     $supervisor = User::factory()->supervisor()->create();
 
-    $this->actingAs($supervisor)->get(STATS_PAGE)->assertForbidden();
+    $this->actingAs($supervisor)->get(adminPath(STATS_PAGE))->assertForbidden();
 });
 
 test('المشرف الممنوح stats.recovery مباشرة يفتح الصفحة', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['stats.recovery'])->create();
 
-    $this->actingAs($supervisor)->get(STATS_PAGE)->assertOk();
+    $this->actingAs($supervisor)->get(adminPath(STATS_PAGE))->assertOk();
 });
 
 test('المدير يفتح الصفحة ضمنيًا دون منح مباشر', function (): void {
     $admin = User::factory()->admin()->create();
 
-    $this->actingAs($admin)->get(STATS_PAGE)->assertOk();
+    $this->actingAs($admin)->get(adminPath(STATS_PAGE))->assertOk();
 
     expect(RecoveryStats::canAccess())->toBeTrue();
 });
@@ -90,15 +90,15 @@ test('المدير يفتح الصفحة ضمنيًا دون منح مباشر',
 test('سحب stats.recovery يمنع الصفحة فورًا', function (): void {
     $supervisor = User::factory()->supervisor()->withPermissions(['stats.recovery'])->create();
 
-    $this->actingAs($supervisor)->get(STATS_PAGE)->assertOk();
+    $this->actingAs($supervisor)->get(adminPath(STATS_PAGE))->assertOk();
 
     $supervisor->revokePermissionTo('stats.recovery');
 
-    $this->actingAs($supervisor->fresh())->get(STATS_PAGE)->assertForbidden();
+    $this->actingAs($supervisor->fresh())->get(adminPath(STATS_PAGE))->assertForbidden();
 });
 
-test('المبادر لا يصل إلى الصفحة', function (): void {
-    $this->actingAs(User::factory()->create())->get(STATS_PAGE)->assertRedirect(route('dashboard'));
+test('المبادر لا يصل إلى الصفحة (404)', function (): void {
+    $this->actingAs(User::factory()->create())->get(adminPath(STATS_PAGE))->assertNotFound();
 });
 
 test('حد بداية ونهاية اليوم بتوقيت الرياض دقيق عند منتصف الليل', function (): void {

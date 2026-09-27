@@ -20,7 +20,7 @@ test('أداة نظرة عامة تعرض مؤشرات مجموع المبادر
     Transfer::factory()->for($beneficiary)->create(['amount' => '750.00']);
 
     $this->actingAs(User::factory()->admin()->create())
-        ->get('/admin')
+        ->get(adminPath())
         ->assertOk()
         ->assertSeeTextInOrder([
             __('dashboard.cards.available'), '3',

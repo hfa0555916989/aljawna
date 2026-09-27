@@ -11,7 +11,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 
 /**
- * PUT /admin/supervisors/{supervisor}/permissions (docs/SPEC.md §10، بصلاحية supervisors.manage).
+ * PUT {ADMIN_PATH}/supervisors/{supervisor}/permissions (docs/SPEC.md §10، بصلاحية supervisors.manage).
  */
 class UpdateSupervisorPermissionsController extends Controller
 {

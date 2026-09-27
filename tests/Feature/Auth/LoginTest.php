@@ -57,22 +57,22 @@ test('الدخول الناجح يوجّه إلى اللوحة ويحدّث بي
         ->and($attempt->succeeded)->toBeTrue();
 });
 
-test('المشرف والمدير يُحوَّلان من /login مباشرة إلى /admin', function (string $role): void {
+test('المشرف والمدير (قبل إعداد التحقق بخطوتين) يُحوَّلان من /login مباشرة إلى اللوحة', function (string $role): void {
     $this->user->update(['role' => $role]);
 
     attemptLogin('0512345678', 'S3cure-pass')
         ->assertHasNoErrors()
-        ->assertRedirect(url('/admin'));
+        ->assertRedirect(url(adminPath()));
 
     expect(Auth::id())->toBe($this->user->id);
 })->with(['supervisor', 'admin']);
 
-test('المشرف يُحوَّل إلى /admin حتى لو سبق أن طلب صفحة أخرى', function (): void {
+test('المشرف يُحوَّل إلى اللوحة حتى لو سبق أن طلب صفحة أخرى', function (): void {
     $this->user->update(['role' => 'supervisor']);
     $this->get('/dashboard')->assertRedirect(route('login'));
     expect(session('url.intended'))->toBe(url('/dashboard'));
 
-    attemptLogin('0512345678', 'S3cure-pass')->assertRedirect(url('/admin'));
+    attemptLogin('0512345678', 'S3cure-pass')->assertRedirect(url(adminPath()));
 });
 
 test('الدخول يقبل الجوال بالأرقام العربية', function (): void {
@@ -160,24 +160,25 @@ test('المستخدم المسجّل دخوله يُحوَّل من صفحة ا
         ->assertRedirect(route('dashboard'));
 });
 
-test('المشرف والمدير بجلسة قائمة يُحوَّلان من /login إلى /admin', function (string $role): void {
+test('المشرف والمدير بجلسة قائمة يُحوَّلان من /login إلى اللوحة', function (string $role): void {
     $this->user->update(['role' => $role]);
 
     $this->actingAs($this->user)
         ->get('/login')
-        ->assertRedirect(url('/admin'));
+        ->assertRedirect(url(adminPath()));
 })->with(['supervisor', 'admin']);
 
 test('وجهة زيارة /login بجلسة قائمة هي نفسها وجهة إرسال النموذج لكل دور', function (string $role, string $destination): void {
     $this->user->update(['role' => $role]);
+    $destination = $destination === 'panel' ? adminPath() : $destination;
 
     attemptLogin('0512345678', 'S3cure-pass')->assertRedirect(url($destination));
 
     $this->get('/login')->assertRedirect(url($destination));
 })->with([
     'مبادر' => ['user', '/dashboard'],
-    'مشرف' => ['supervisor', '/admin'],
-    'مدير' => ['admin', '/admin'],
+    'مشرف' => ['supervisor', 'panel'],
+    'مدير' => ['admin', 'panel'],
 ]);
 
 test('كوكيز الجلسة HttpOnly وSecure وSameSite افتراضيًا', function (): void {

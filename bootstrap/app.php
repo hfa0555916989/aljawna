@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\EnsureSessionEpoch;
+use App\Http\Middleware\RunMonitoringWatchdog;
 use App\Models\User;
+use App\Services\ErrorCounter;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             AuthenticateSession::class,
             EnsureSessionEpoch::class,
+            RunMonitoringWatchdog::class,
         ]);
 
         $middleware->redirectUsersTo(
@@ -29,6 +32,11 @@ return Application::configure(basePath: dirname(__DIR__))
         );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // عدّ الأخطاء المُبلَّغ عنها لصفحة "صحة النظام" وتنبيه الارتفاع المفاجئ، دون إيقاف تسجيلها.
+        $exceptions->report(function (Throwable $exception): void {
+            app(ErrorCounter::class)->record();
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
