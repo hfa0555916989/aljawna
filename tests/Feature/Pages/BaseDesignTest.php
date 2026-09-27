@@ -17,6 +17,7 @@ use App\Models\Page;
 use App\Models\PageRevision;
 use App\Models\User;
 use App\Services\BaseDesign;
+use App\Services\LegalPages;
 use App\Services\SiteMenu;
 use App\Support\PageBlocks;
 use Database\Seeders\PermissionSeeder;
@@ -58,28 +59,46 @@ function customizeSite(User $actor): void
     ]);
 }
 
-test('أول زيارة تثبّت الرئيسية بالتصميم الأساسي ونسخة أساسها والقائمتين', function (): void {
+test('أول زيارة تثبّت الرئيسية بالتصميم الأساسي ونسخة أساسها والقائمتين، وتُنشئ صفحتي الخصوصية والشروط', function (): void {
     expect(Page::query()->count())->toBe(0);
 
     $this->get('/')
         ->assertOk()
         ->assertSee(__('site.home.lead'))
         ->assertSee(__('pages.base.faq_heading'))
-        ->assertSee(__('pages.base.menu.beneficiaries'));
+        ->assertSee(__('pages.base.menu.beneficiaries'))
+        ->assertSee(__('pages.base.menu.privacy'))
+        ->assertSee(__('pages.base.menu.terms'));
 
-    $home = Page::query()->sole();
+    expect(Page::query()->count())->toBe(3);
+
+    $home = Page::query()->where('slug', BaseDesign::HOME_SLUG)->sole();
 
     expect($home->is_system)->toBeTrue()
-        ->and($home->slug)->toBe(BaseDesign::HOME_SLUG)
         ->and($home->isPublished())->toBeTrue()
         ->and($home->revisions()->sole()->is_baseline)->toBeTrue()
         ->and($home->blocks)->toEqual(app(BaseDesign::class)->homeBlocks())
         ->and(MenuRevision::query()->sole()->is_baseline)->toBeTrue()
-        ->and(MenuItem::query()->count())->toBe(4);
+        ->and(MenuItem::query()->count())->toBe(6);
+
+    $privacy = Page::query()->where('slug', LegalPages::PRIVACY_SLUG)->sole();
+    $terms = Page::query()->where('slug', LegalPages::TERMS_SLUG)->sole();
+
+    expect($privacy->is_system)->toBeFalse()
+        ->and($privacy->isPublished())->toBeTrue()
+        ->and($terms->is_system)->toBeFalse()
+        ->and($terms->isPublished())->toBeTrue();
 
     expect(app(SiteMenu::class)->links(MenuLocation::Header))->toBe([
         ['label' => __('pages.base.menu.home'), 'url' => '/', 'external' => false],
         ['label' => __('pages.base.menu.beneficiaries'), 'url' => '/beneficiaries', 'external' => false],
+    ]);
+
+    expect(app(SiteMenu::class)->links(MenuLocation::Footer))->toBe([
+        ['label' => __('pages.base.menu.home'), 'url' => '/', 'external' => false],
+        ['label' => __('pages.base.menu.beneficiaries'), 'url' => '/beneficiaries', 'external' => false],
+        ['label' => __('pages.base.menu.privacy'), 'url' => route('pages.show', $privacy->slug, absolute: false), 'external' => false],
+        ['label' => __('pages.base.menu.terms'), 'url' => route('pages.show', $terms->slug, absolute: false), 'external' => false],
     ]);
 });
 
@@ -89,7 +108,7 @@ test('التثبيت لا يتكرر: زيارات متتالية لا تنشئ 
     app(BaseDesign::class)->home();
     app(BaseDesign::class)->menuBaseline();
 
-    expect(Page::query()->count())->toBe(1)
+    expect(Page::query()->count())->toBe(3)
         ->and(PageRevision::query()->where('is_baseline', true)->count())->toBe(1)
         ->and(MenuRevision::query()->where('is_baseline', true)->count())->toBe(1);
 });
