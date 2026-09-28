@@ -35,6 +35,7 @@ class SystemHealth
             $this->queueWorker(),
             $this->scheduler(),
             $this->receiptsBackup(),
+            $this->databaseBackup(),
             $this->failedJobs(),
             $this->recentErrors(),
         ];
@@ -108,24 +109,15 @@ class SystemHealth
      */
     public function receiptsBackup(): array
     {
-        if (! config('monitoring.backup.enabled')) {
-            return $this->check('backup', HealthStatus::Unconfigured, __('health.values.unconfigured'));
-        }
+        return $this->backupCheck('backup', SystemHeartbeat::RECEIPTS_BACKUP, 'monitoring.backup');
+    }
 
-        $heartbeat = $this->heartbeat(SystemHeartbeat::RECEIPTS_BACKUP);
-
-        if ($heartbeat === null) {
-            return $this->check('backup', HealthStatus::Unknown, __('health.values.never'));
-        }
-
-        $isStale = $heartbeat->last_seen_at->lt(now()->subHours((int) config('monitoring.backup.max_age_hours')));
-        $failed = $heartbeat->status !== SystemHeartbeat::BACKUP_SUCCEEDED;
-
-        return $this->check(
-            'backup',
-            $failed || $isStale ? HealthStatus::Failing : HealthStatus::Ok,
-            __($failed ? 'health.values.backup_failed' : 'health.values.backup_succeeded', ['time' => $this->formatTime($heartbeat->last_seen_at)]),
-        );
+    /**
+     * @return Check
+     */
+    public function databaseBackup(): array
+    {
+        return $this->backupCheck('database_backup', SystemHeartbeat::DATABASE_BACKUP, 'monitoring.database_backup');
     }
 
     /**
@@ -180,6 +172,33 @@ class SystemHealth
             $key,
             $isStale ? HealthStatus::Failing : HealthStatus::Ok,
             __('health.values.last_seen', ['time' => $this->formatTime($heartbeat->last_seen_at)]),
+        );
+    }
+
+    /**
+     * نسخة احتياطية: "غير مُعدّ" حتى تفعيلها، ثم فاشلة إن فشل آخر تشغيل أو تأخّر أكثر من مهلتها.
+     *
+     * @return Check
+     */
+    private function backupCheck(string $key, string $name, string $configKey): array
+    {
+        if (! config($configKey.'.enabled')) {
+            return $this->check($key, HealthStatus::Unconfigured, __('health.values.unconfigured'));
+        }
+
+        $heartbeat = $this->heartbeat($name);
+
+        if ($heartbeat === null) {
+            return $this->check($key, HealthStatus::Unknown, __('health.values.never'));
+        }
+
+        $isStale = $heartbeat->last_seen_at->lt(now()->subHours((int) config($configKey.'.max_age_hours')));
+        $failed = $heartbeat->status !== SystemHeartbeat::BACKUP_SUCCEEDED;
+
+        return $this->check(
+            $key,
+            $failed || $isStale ? HealthStatus::Failing : HealthStatus::Ok,
+            __($failed ? 'health.values.backup_failed' : 'health.values.backup_succeeded', ['time' => $this->formatTime($heartbeat->last_seen_at)]),
         );
     }
 

@@ -25,6 +25,8 @@ class SystemHeartbeat extends Model
 
     public const string RECEIPTS_BACKUP = 'receipts_backup';
 
+    public const string DATABASE_BACKUP = 'database_backup';
+
     /**
      * أول فحص مراقبة: مرجع مهلة السماح قبل التنبيه على مكوّن لم ينبض قط.
      */
@@ -46,11 +48,19 @@ class SystemHeartbeat extends Model
     }
 
     /**
-     * يستدعيه أمر النسخ الاحتياطي للإيصالات (T21) بعد كل تشغيل، ناجحًا أو فاشلًا.
+     * يستدعيه أمر النسخ الاحتياطي للإيصالات (backup:receipts) بعد كل تشغيل، ناجحًا أو فاشلًا.
      */
     public static function recordReceiptsBackup(bool $succeeded): void
     {
         static::beat(self::RECEIPTS_BACKUP, $succeeded ? self::BACKUP_SUCCEEDED : self::BACKUP_FAILED);
+    }
+
+    /**
+     * يستدعيه أمر نسخ قاعدة البيانات (backup:database) بعد كل تشغيل، ناجحًا أو فاشلًا.
+     */
+    public static function recordDatabaseBackup(bool $succeeded): void
+    {
+        static::beat(self::DATABASE_BACKUP, $succeeded ? self::BACKUP_SUCCEEDED : self::BACKUP_FAILED);
     }
 
     public static function named(string $name): ?self

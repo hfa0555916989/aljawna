@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $wedding_date
  * @property Carbon|null $approved_at
  * @property Carbon|null $approval_revoked_at
+ * @property Carbon|null $closed_at
  */
 #[Fillable([
     'display_name', 'account_holder', 'bank_name', 'account_number', 'iban',
@@ -166,6 +167,7 @@ class Beneficiary extends Model
             'status' => BeneficiaryStatus::class,
             'approved_at' => 'datetime',
             'approval_revoked_at' => 'datetime',
+            'closed_at' => 'datetime',
         ];
     }
 }

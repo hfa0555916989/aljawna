@@ -62,6 +62,7 @@ class TransfersTable
             ->recordActions([
                 Action::make('receipt')
                     ->label(__('transfers.review.receipt'))
+                    ->visible(fn (Transfer $record): bool => $record->hasReceipt())
                     ->url(fn (Transfer $record): string => app(ReceiptStorage::class)->temporaryUrl($record))
                     ->openUrlInNewTab(),
                 Action::make('match')

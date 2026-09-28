@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * إغلاق المبادرة أو إعادة فتحها (docs/SPEC.md FR-32). المغلقة توقف استقبال حوالات جديدة.
- * يُسجَّل في audit_logs بمن نفّذ.
+ * يُسجَّل في audit_logs بمن نفّذ. closed_at يُضبط عند الإغلاق ويُفرَّغ عند إعادة الفتح،
+ * وعليه تُحتسب مدة الاحتفاظ بصور الإيصالات (App\Services\ReceiptRetention).
  */
 class ChangeBeneficiaryStatus
 {
@@ -34,7 +35,10 @@ class ChangeBeneficiaryStatus
         }
 
         DB::transaction(function () use ($actor, $beneficiary, $status): void {
-            $beneficiary->forceFill(['status' => $status])->save();
+            $beneficiary->forceFill([
+                'status' => $status,
+                'closed_at' => $status === BeneficiaryStatus::Closed ? now() : null,
+            ])->save();
 
             Audit::record(
                 $status === BeneficiaryStatus::Closed ? self::AUDIT_CLOSED : self::AUDIT_REOPENED,

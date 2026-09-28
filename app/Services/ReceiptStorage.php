@@ -95,6 +95,8 @@ class ReceiptStorage
      */
     public function response(Transfer $transfer): StreamedResponse
     {
+        abort_if($transfer->receipt_path === null, 404);
+
         $type = ReceiptType::fromPath($transfer->receipt_path);
 
         abort_if($type === null || ! $this->exists($transfer->receipt_path), 404);

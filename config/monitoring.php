@@ -11,8 +11,9 @@ declare(strict_types=1);
 | alert_cooldown_minutes: لا يتكرر نفس التنبيه قبل انقضاء هذه المدة ما دامت المشكلة قائمة.
 | scheduler_stale_minutes / queue_stale_minutes: عمر آخر نبض قبل اعتبار المكوّن متوقفًا.
 | error_spike: عدد الأخطاء المسجَّلة خلال window_minutes الذي يُعد ارتفاعًا مفاجئًا.
-| backup: نسخ الإيصالات الاحتياطي. "غير مُعدّ" حتى تفعيله في T21، ثم يُنبَّه عند فشل
-|         آخر نسخة أو تأخرها أكثر من max_age_hours.
+| backup: نسخ الإيصالات الاحتياطي (كل ساعة، T21). "غير مُعدّ" حتى تفعيله، ثم يُنبَّه عند
+|         فشل آخر نسخة أو تأخرها أكثر من max_age_hours.
+| database_backup: نسخة قاعدة البيانات اليومية (T21)، بنفس القواعد.
 | watchdog_seconds: أقل فاصل لفحص المراقبة من طلبات الويب، لاكتشاف توقف المجدول نفسه.
 |
 */
@@ -34,7 +35,12 @@ return [
 
     'backup' => [
         'enabled' => (bool) env('RECEIPTS_BACKUP_ENABLED', false),
-        'max_age_hours' => (int) env('RECEIPTS_BACKUP_MAX_AGE_HOURS', 26),
+        'max_age_hours' => (int) env('RECEIPTS_BACKUP_MAX_AGE_HOURS', 3),
+    ],
+
+    'database_backup' => [
+        'enabled' => (bool) env('DATABASE_BACKUP_ENABLED', false),
+        'max_age_hours' => (int) env('DATABASE_BACKUP_MAX_AGE_HOURS', 26),
     ],
 
     'watchdog_seconds' => (int) env('MONITOR_WATCHDOG_SECONDS', 300),
