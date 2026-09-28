@@ -95,6 +95,32 @@ return [
             ],
         },
 
+        // النسخ الاحتياطي المشفّر خارج Laravel Cloud (T21، docs/RUNBOOK.md): bucket في Cloudflare R2
+        // بحساب Cloudflare منفصل. بيانات الاتصال من BACKUP_R2_* وحدها، ولا تعود إلى AWS_* التي
+        // يحقنها Laravel Cloud، كي لا تقع النسخ في تخزين البيئة نفسها. كل ملف مشفّر قبل رفعه.
+        // لا visibility هنا: R2 لا يدعم ترويسات ACL لكل كائن.
+        'backups' => match (env('BACKUP_FILESYSTEM_DRIVER', 'local')) {
+            's3' => [
+                'driver' => 's3',
+                'key' => env('BACKUP_R2_ACCESS_KEY_ID'),
+                'secret' => env('BACKUP_R2_SECRET_ACCESS_KEY'),
+                'region' => env('BACKUP_R2_REGION', 'auto'),
+                'bucket' => env('BACKUP_R2_BUCKET'),
+                'endpoint' => env('BACKUP_R2_ENDPOINT'),
+                'use_path_style_endpoint' => (bool) env('BACKUP_R2_USE_PATH_STYLE_ENDPOINT', true),
+                'root' => env('BACKUP_R2_ROOT', ''),
+                'throw' => true,
+                'report' => false,
+            ],
+            default => [
+                'driver' => 'local',
+                'root' => storage_path('app/backups'),
+                'serve' => false,
+                'throw' => true,
+                'report' => false,
+            ],
+        },
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

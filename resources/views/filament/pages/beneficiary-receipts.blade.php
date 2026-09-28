@@ -74,17 +74,21 @@
                                 @if ($transfer->is_repeated)
                                     <x-filament::badge color="warning">{{ __('transfers.admin.repeated') }}</x-filament::badge>
                                 @endif
-                                <x-filament::button
-                                    tag="a"
-                                    :href="$this->receiptUrl($transfer)"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    outlined
-                                    size="sm"
-                                    :aria-label="__('transfers.index.view_receipt_aria', ['amount' => $amount, 'name' => $beneficiary->display_name])"
-                                >
-                                    {{ __('transfers.index.view_receipt') }}
-                                </x-filament::button>
+                                @if ($transfer->hasReceipt())
+                                    <x-filament::button
+                                        tag="a"
+                                        :href="$this->receiptUrl($transfer)"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        outlined
+                                        size="sm"
+                                        :aria-label="__('transfers.index.view_receipt_aria', ['amount' => $amount, 'name' => $beneficiary->display_name])"
+                                    >
+                                        {{ __('transfers.index.view_receipt') }}
+                                    </x-filament::button>
+                                @else
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ __('transfers.index.receipt_purged') }}</span>
+                                @endif
                             </div>
                         </li>
                     @endforeach

@@ -108,6 +108,8 @@ return [
     | receipts.link_minutes: مدة صلاحية رابط عرض الإيصال الموقّع.
     | receipts.max_pixels: أقصى أبعاد للصورة (العرض × الارتفاع) قبل فك ترميزها،
     | حماية للذاكرة من الصور المضغوطة المفخخة.
+    | receipts.retention_months: تُحذف صور إيصالات المبادرة بعد إقفالها بهذه المدة، من التخزين
+    | ومن النسخ الاحتياطية (php artisan receipts:purge-expired)، وتبقى بيانات الحوالة دائمًا.
     |
     */
 
@@ -119,6 +121,7 @@ return [
         'disk' => env('RECEIPTS_DISK', 'receipts'),
         'link_minutes' => (int) env('RECEIPT_LINK_MINUTES', 10),
         'max_pixels' => (int) env('RECEIPT_MAX_PIXELS', 20000000),
+        'retention_months' => (int) env('RECEIPTS_RETENTION_MONTHS', 6),
     ],
 
     /*

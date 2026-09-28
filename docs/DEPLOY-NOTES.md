@@ -8,6 +8,9 @@
 وذاكرة Valkey/Redis وتخزين الكائنات موارد مُدارة تُربط بالبيئة، فيحقن Laravel
 Cloud متغيرات اتصالها تلقائيًا؛ وأي متغير مخصّص تكتبه يتقدّم عليها.
 
+خطوات الإعداد كاملة خطوة بخطوة في `docs/RUNBOOK.md`، والتحقق بعد كل نشر في
+`docs/POST-DEPLOY-CHECKLIST.md`. هذا الملف مرجع المتغيرات.
+
 ## متغيرات البيئة المطلوبة
 
 ### التطبيق وقاعدة البيانات
@@ -56,7 +59,24 @@ Redis (Valkey ومنه) تعمل دون تغيير في الشيفرة.
 عام لأنها تُعرض للجميع.
 
 على Laravel Cloud نظام الملفات مؤقت ولا يُشارَك بين النسخ، فيُضبط القرصان على
-`s3` مع bucketين من Laravel Cloud Object Storage: خاص للإيصالات، وعام للصور.
+`s3` مع bucketين من Laravel Cloud Object Storage: خاص للإيصالات (disk name `receipts`،
+default)، وعام للصور (disk name `public`)، و`PUBLIC_AWS_URL` يُنسخ يدويًا من إعدادات
+الـ bucket العام (docs/RUNBOOK.md القسم 6).
+
+| المتغير | الغرض |
+|---|---|
+| `RECEIPTS_RETENTION_MONTHS` | تُحذف صور إيصالات المبادرة بعد إقفالها بهذه المدة (6)، من التخزين ومن النسخ، وتبقى بيانات الحوالة (`receipts:purge-expired` يوميًا) |
+
+### النسخ الاحتياطي خارج Laravel Cloud (Cloudflare R2)
+
+| المتغير | الغرض |
+|---|---|
+| `BACKUP_FILESYSTEM_DRIVER` | `s3` في الإنتاج (Cloudflare R2)، و`local` للتطوير فقط |
+| `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`, `BACKUP_R2_BUCKET`, `BACKUP_R2_ENDPOINT`, `BACKUP_R2_REGION`, `BACKUP_R2_USE_PATH_STYLE_ENDPOINT`, `BACKUP_R2_ROOT` | bucket R2 في **حساب Cloudflare منفصل** برمز مقصور عليه. لا تعود إلى `AWS_*` المحقونة أبدًا |
+| `BACKUP_ENCRYPTION_KEY` | مفتاح التشفير قبل الرفع (`base64:` + 32 بايت). يُحفظ خارج Laravel Cloud أيضًا؛ ضياعه = استحالة الاسترجاع |
+| `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY`, `BACKUP_KEEP_MONTHLY` | احتفاظ نسخ قاعدة البيانات (14 يومًا / 8 أسابيع / 6 أشهر) |
+| `RECEIPTS_BACKUP_ENABLED`, `RECEIPTS_BACKUP_MAX_AGE_HOURS` | تفعيل نسخ الإيصالات كل ساعة، والتنبيه إن فشل آخرها أو تأخر أكثر من 3 ساعات |
+| `DATABASE_BACKUP_ENABLED`, `DATABASE_BACKUP_MAX_AGE_HOURS` | تفعيل نسخة قاعدة البيانات اليومية، والتنبيه إن فشلت أو تأخرت أكثر من 26 ساعة |
 
 ### الكابتشا والبريد وتنبيهات التشغيل
 
@@ -64,12 +84,11 @@ Redis (Valkey ومنه) تعمل دون تغيير في الشيفرة.
 |---|---|
 | `TURNSTILE_ENABLED`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | مفاتيح Cloudflare Turnstile الحقيقية في الإنتاج (المفاتيح في `.env.example` تجريبية فقط) |
 | `ALERT_EMAIL` | العنوان الوحيد الذي تصله تنبيهات التشغيل (المسؤول عن الدعم الفني). فارغ = لا تنبيهات |
-| `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | ناقل حقيقي (مثل `smtp`) لتنبيهات التشغيل فقط؛ لا بريد لأي مستخدم (استثناء محصور، docs/DECISIONS.md). مع `log` تبقى التنبيهات في السجل |
+| `MAIL_MAILER`, `MAIL_SCHEME`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | **Resend عبر SMTP** لتنبيهات التشغيل فقط؛ لا بريد لأي مستخدم (استثناء محصور، docs/DECISIONS.md): `smtp` و`smtps` و`smtp.resend.com` و`465` و`resend` ومفتاح Resend بصلاحية الإرسال، والمرسل من دومين موثَّق في Resend. مع `log` تبقى التنبيهات في السجل. للتجربة: `php artisan alerts:test` |
 | `ALERT_COOLDOWN_MINUTES` | أقل فاصل لتكرار نفس التنبيه ما دامت المشكلة قائمة (60) |
 | `ALERT_ERROR_SPIKE_THRESHOLD`, `ALERT_ERROR_SPIKE_WINDOW_MINUTES` | عدد الأخطاء خلال النافذة الذي يُعد ارتفاعًا مفاجئًا (50 خلال 15 دقيقة) |
 | `MONITOR_SCHEDULER_STALE_MINUTES`, `MONITOR_QUEUE_STALE_MINUTES` | عمر آخر نبض قبل اعتبار المجدول أو عامل الطوابير متوقفًا (5) |
 | `MONITOR_WATCHDOG_SECONDS` | أقل فاصل لفحص المراقبة من طلبات الويب، لاكتشاف توقف المجدول نفسه (300) |
-| `RECEIPTS_BACKUP_ENABLED`, `RECEIPTS_BACKUP_MAX_AGE_HOURS` | يبقى `false` ("غير مُعدّ") حتى T21، ثم يُنبَّه عند فشل آخر نسخة أو تأخرها (26 ساعة) |
 
 ### حدود الحماية والمنشئ
 
@@ -108,8 +127,9 @@ php artisan migrate --force
 3. **الدخول:** `/login` للجميع. المدير والمشرف يُعدّان التحقق بخطوتين (TOTP) في صفحة قبول الدعوة نفسها قبل إنشاء الحساب، وتُعرض رموز الاسترداد مرة واحدة: احفظها خارج الجوال. تجديدها لاحقًا من قائمة المستخدم في اللوحة ("تجديد رموز الاسترداد").
 4. **عنوان الزائر الحقيقي:** بعد أول دخول افتح صفحة "الأمان" في اللوحة وتأكد أن عنوان IP في سجل المحاولات هو عنوانك (لا عنوان داخلي أو عنوان Cloudflare). إن لم يكن كذلك فأوقف النشر وراجع `TRUSTED_PROXIES`.
 5. **Edge network في Laravel Cloud:** اترك مفتاح HSTS هناك معطَّلًا (التطبيق يرسله)، و`X-Frame-Options: DENY` و`nosniff` على الافتراضي. تحديد المعدل في الـ WAF (باقات Growth/Business) طبقة إضافية اختيارية فوق حدود التطبيق.
-6. **صحة النظام:** افتح `{ADMIN_PATH}/system-health` كمدير، وتأكد أن المجدول وعامل الطوابير "سليم" خلال دقيقتين، وأن النسخ الاحتياطي "غير مُعدّ" حتى T21.
-7. **التنبيهات:** اضبط `ALERT_EMAIL` و`MAIL_*` ثم أعد النشر. للتجربة: `php artisan monitor:check` (لا يرسل شيئًا ما دام النظام سليمًا).
+6. **صحة النظام:** افتح `{ADMIN_PATH}/system-health` كمدير، وتأكد أن المجدول وعامل الطوابير "سليم" خلال دقيقتين، وأن بندي النسخ الاحتياطي "سليم" بعد تفعيلهما (docs/RUNBOOK.md القسم 10).
+7. **التنبيهات:** اضبط `ALERT_EMAIL` و`MAIL_*` (Resend) ثم أعد النشر، ثم `php artisan alerts:test` (يرسل تنبيهًا تجريبيًا فورًا). `php artisan monitor:check` لا يرسل شيئًا ما دام النظام سليمًا.
+8. **البقية:** `docs/POST-DEPLOY-CHECKLIST.md` كاملة.
 
 ### إنشاء حساب مدير إضافي
 
@@ -157,10 +177,14 @@ php artisan db:seed --class=DemoSeeder
 يُفعَّل المجدول في Laravel Cloud فيشغّل `php artisan schedule:run` كل دقيقة، وفق
 ما يقرّره `routes/console.php` من مهام مجدولة: إغلاق طلبات الاستعادة المنتهية
 `recovery:expire` كل ساعة، ونبض المراقبة `monitor:heartbeat` كل دقيقة، وفحصها
-وتنبيهاتها `monitor:check` كل 5 دقائق.
+وتنبيهاتها `monitor:check` كل 5 دقائق، ونسخ الإيصالات `backup:receipts` كل ساعة،
+ونسخة قاعدة البيانات `backup:database` يوميًا 03:00، وحذف صور الإيصالات المنتهية
+`receipts:purge-expired` يوميًا 04:30 (بتوقيت الرياض). أمرا النسخ لا يفعلان شيئًا
+ما دام تفعيلهما `false`.
 
 ## قابلية النقل
 
 كل ما سبق مُعرَّف بالكامل عبر متغيرات البيئة (قاعدة البيانات، Redis، تخزين
-الملفات)، فينتقل النظام بين مزوّدي الاستضافة أو إلى خادم داخل المملكة لاحقًا
-بتغيير `.env` فقط، دون أي تعديل في الشيفرة (docs/SPEC.md §11، §12.12).
+الملفات، وجهة النسخ)، فينتقل النظام بين مزوّدي الاستضافة أو إلى خادم داخل المملكة
+لاحقًا بتغيير `.env` فقط، دون أي تعديل في الشيفرة (docs/SPEC.md §11، §12.12).
+الخطوات في `docs/RUNBOOK.md` القسم 19.

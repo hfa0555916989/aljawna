@@ -21,6 +21,7 @@ return [
         'queue' => 'نبض عامل الطوابير',
         'scheduler' => 'آخر تشغيل للمجدول',
         'backup' => 'آخر نسخة احتياطية للإيصالات',
+        'database_backup' => 'آخر نسخة احتياطية لقاعدة البيانات',
         'failed_jobs' => 'المهام الفاشلة',
         'errors' => 'الأخطاء خلال آخر 24 ساعة',
     ],
@@ -60,7 +61,16 @@ return [
         ],
         'backup_failed' => [
             'title' => 'فشل النسخ الاحتياطي للإيصالات أو تأخّر',
-            'action' => 'راجع سجل أمر النسخ الاحتياطي ووجهة التخزين.',
+            'action' => 'راجع سجل الأمر backup:receipts في Laravel Cloud ووجهة النسخ في Cloudflare R2.',
+        ],
+        'database_backup_failed' => [
+            'title' => 'فشل النسخ الاحتياطي لقاعدة البيانات أو تأخّر',
+            'action' => 'راجع سجل الأمر backup:database في Laravel Cloud ووجهة النسخ في Cloudflare R2.',
+        ],
+        'test' => [
+            'title' => 'تنبيه تجريبي',
+            'action' => 'لا يلزم أي إجراء: وصول هذه الرسالة يعني أن تنبيهات التشغيل تعمل.',
+            'details' => 'أُرسل يدويًا بالأمر php artisan alerts:test (ناقل البريد: :mailer).',
         ],
         'error_spike' => [
             'title' => 'ارتفاع مفاجئ في الأخطاء',

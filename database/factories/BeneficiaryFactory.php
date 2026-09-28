@@ -74,6 +74,7 @@ class BeneficiaryFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'status' => BeneficiaryStatus::Closed,
+            'closed_at' => now(),
         ]);
     }
 }

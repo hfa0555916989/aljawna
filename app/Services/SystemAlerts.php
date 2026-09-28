@@ -10,6 +10,7 @@ use App\Models\SystemHeartbeat;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -29,7 +30,14 @@ class SystemAlerts
 
     public const string BACKUP_FAILED = 'backup_failed';
 
+    public const string DATABASE_BACKUP_FAILED = 'database_backup_failed';
+
     public const string ERROR_SPIKE = 'error_spike';
+
+    /**
+     * تنبيه تجريبي يرسله php artisan alerts:test للتحقق من وصول البريد، خارج منع التكرار.
+     */
+    public const string TEST = 'test';
 
     public function __construct(private SystemHealth $health) {}
 
@@ -78,6 +86,10 @@ class SystemAlerts
             $problems[] = self::BACKUP_FAILED;
         }
 
+        if ($this->health->databaseBackup()['status'] === HealthStatus::Failing) {
+            $problems[] = self::DATABASE_BACKUP_FAILED;
+        }
+
         if ($this->health->isErrorSpike()) {
             $problems[] = self::ERROR_SPIKE;
         }
@@ -103,6 +115,27 @@ class SystemAlerts
         $monitor = SystemHeartbeat::named(SystemHeartbeat::MONITOR);
 
         return $monitor !== null && $monitor->created_at->lt(now()->subMinutes($minutes));
+    }
+
+    /**
+     * يرسل تنبيهًا تجريبيًا فورًا إلى ALERT_EMAIL دون المرور بمنع التكرار، ويترك
+     * استثناء الإرسال يصل إلى من استدعاه ليعرض سبب الفشل.
+     *
+     * @throws Throwable
+     */
+    public function sendTest(): string
+    {
+        $recipient = (string) config('monitoring.alert_email');
+
+        if ($recipient === '') {
+            throw new RuntimeException('ALERT_EMAIL فارغ.');
+        }
+
+        Mail::to($recipient)->send(new SystemAlert(self::TEST, __('health.alerts.test.details', [
+            'mailer' => (string) config('mail.default'),
+        ])));
+
+        return $recipient;
     }
 
     private function send(string $problem): bool
@@ -161,6 +194,7 @@ class SystemAlerts
             self::SCHEDULER_STALLED => $this->health->scheduler()['value'],
             self::QUEUE_STALLED => $this->health->queueWorker()['value'],
             self::BACKUP_FAILED => $this->health->receiptsBackup()['value'],
+            self::DATABASE_BACKUP_FAILED => $this->health->databaseBackup()['value'],
             self::ERROR_SPIKE => __('health.alerts.error_spike_details', [
                 'count' => (int) app(ErrorCounter::class)->countSince((int) config('monitoring.error_spike.window_minutes')),
                 'minutes' => (int) config('monitoring.error_spike.window_minutes'),

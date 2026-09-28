@@ -44,15 +44,19 @@
                         </div>
                     </dl>
 
-                    <a
-                        href="{{ $this->receiptUrl($transfer) }}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="{{ __('transfers.index.view_receipt_aria', ['amount' => $amount, 'name' => $transfer->beneficiary->display_name]) }}"
-                        class="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-pri px-4 text-sm font-semibold text-pri hover:bg-brass-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri"
-                    >
-                        {{ __('transfers.index.view_receipt') }}
-                    </a>
+                    @if ($transfer->hasReceipt())
+                        <a
+                            href="{{ $this->receiptUrl($transfer) }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="{{ __('transfers.index.view_receipt_aria', ['amount' => $amount, 'name' => $transfer->beneficiary->display_name]) }}"
+                            class="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-pri px-4 text-sm font-semibold text-pri hover:bg-brass-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri"
+                        >
+                            {{ __('transfers.index.view_receipt') }}
+                        </a>
+                    @else
+                        <p class="text-sm text-muted">{{ __('transfers.index.receipt_purged') }}</p>
+                    @endif
                 </li>
             @endforeach
         </ul>

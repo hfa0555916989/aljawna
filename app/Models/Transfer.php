@@ -24,7 +24,8 @@ use Illuminate\Support\Carbon;
  * @property int $beneficiary_id
  * @property numeric-string $amount
  * @property Carbon $transferred_on
- * @property string $receipt_path
+ * @property string|null $receipt_path فارغ بعد حذف الصورة بسياسة الاحتفاظ (receipt_purged_at)
+ * @property Carbon|null $receipt_purged_at
  * @property string $receipt_hash
  * @property string|null $bank_reference
  * @property bool $is_repeated
@@ -62,6 +63,14 @@ class Transfer extends Model
     public function isOwnedBy(User $user): bool
     {
         return $this->user_id === $user->id;
+    }
+
+    /**
+     * صورة الإيصال ما زالت محفوظة (لم تُحذف بعد انتهاء مدة الاحتفاظ). الحوالة تبقى محتسبة في الحالين.
+     */
+    public function hasReceipt(): bool
+    {
+        return $this->receipt_path !== null;
     }
 
     /**
@@ -124,6 +133,7 @@ class Transfer extends Model
             'review_state' => TransferReviewState::class,
             'assigned_at' => 'datetime',
             'final_reviewed_at' => 'datetime',
+            'receipt_purged_at' => 'datetime',
         ];
     }
 }
