@@ -79,7 +79,8 @@ class CreateTransfer
                 ]);
             });
         } catch (Throwable $exception) {
-            $this->receipts->delete($stored->path);
+            // تنظيف الإيصال اليتيم لا يخفي سبب الفشل الأصلي إن فشل هو أيضًا.
+            rescue(fn () => $this->receipts->delete($stored->path));
 
             throw $exception;
         }

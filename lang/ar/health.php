@@ -22,6 +22,7 @@ return [
         'scheduler' => 'آخر تشغيل للمجدول',
         'backup' => 'آخر نسخة احتياطية للإيصالات',
         'database_backup' => 'آخر نسخة احتياطية لقاعدة البيانات',
+        'receipts_purge' => 'آخر حذف لصور الإيصالات المنتهية',
         'failed_jobs' => 'المهام الفاشلة',
         'errors' => 'الأخطاء خلال آخر 24 ساعة',
     ],
@@ -66,6 +67,10 @@ return [
         'database_backup_failed' => [
             'title' => 'فشل النسخ الاحتياطي لقاعدة البيانات أو تأخّر',
             'action' => 'راجع سجل الأمر backup:database في Laravel Cloud ووجهة النسخ في Cloudflare R2.',
+        ],
+        'receipts_purge_failed' => [
+            'title' => 'تعذّر حذف صور إيصالات انتهت مدة الاحتفاظ بها',
+            'action' => 'بقيت الصور ومساراتها كما هي ويُعاد المحاولة يوميًا. راجع سجل الأمر receipts:purge-expired في Laravel Cloud وحالة الـ bucket.',
         ],
         'test' => [
             'title' => 'تنبيه تجريبي',

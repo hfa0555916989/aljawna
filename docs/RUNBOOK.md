@@ -112,16 +112,47 @@ R2 يطبّق الخصوصية على مستوى الـ bucket كله، فيلز
 
 | Bucket | Visibility | Disk name | Default disk | لماذا |
 |---|---|---|---|---|
-| `ajawna-receipts` | **Private** | `receipts` | نعم | إيصالات الحوالات، تُعرض بروابط موقّعة مؤقتة بعد فحص الصلاحية |
-| `ajawna-public` | Public | `public` | لا | الشعار والأيقونة وصور منشئ الصفحات |
+| `aljawna-receipts` | **Private** | `receipts` | **نعم (عمدًا)** | إيصالات الحوالات، تُعرض بروابط موقّعة مؤقتة بعد فحص الصلاحية |
+| `aljawna-public` | Public | `public` | لا | الشعار والأيقونة وصور منشئ الصفحات |
 
-1. **Add bucket** → Laravel Object Storage → لكلٍّ من الاثنين بالإعداد أعلاه.
-2. اضبط: `RECEIPTS_FILESYSTEM_DRIVER=s3` و`PUBLIC_FILESYSTEM_DRIVER=s3`.
-3. `AWS_URL` للـ bucket العام **لا يُحقن تلقائيًا**: انسخه من صفحة إعدادات الـ bucket العام إلى `PUBLIC_AWS_URL`.
-4. إن لم يعمل أحد القرصين بعد النشر (انظر فحص رفع إيصال في `docs/POST-DEPLOY-CHECKLIST.md`)، فاضبط
-   بيانات اتصاله صراحةً من **Resources → Object storage → … → View credentials**:
-   `RECEIPTS_AWS_ACCESS_KEY_ID` و`RECEIPTS_AWS_SECRET_ACCESS_KEY` و`RECEIPTS_AWS_BUCKET` و`RECEIPTS_AWS_ENDPOINT`
-   و`RECEIPTS_AWS_DEFAULT_REGION=auto` (ونظائرها `PUBLIC_AWS_*`).
+1. **Add bucket** → Laravel Object Storage → **`aljawna-receipts` أولًا** بـ disk name `receipts`، ثم
+   `aljawna-public` بـ disk name `public`. الاسمان يجب أن يطابقا اسمي القرصين في الشيفرة حرفيًا.
+   - Laravel Cloud يجعل أول bucket يُربط هو **Default disk** إجباريًا ("This will be your default disk. You
+     can change this later")، فلا بد من disk افتراضي.
+   - **القرار: `aljawna-receipts` هو الافتراضي عمدًا**، لأن الخاص أسلم من العام إذا كُتب ملف على الـ disk
+     الافتراضي بالخطأ: يبقى خاصًا بدل أن يصير متاحًا للجميع. لا تغيّره إلى `aljawna-public`.
+2. **لا تكتب أي متغير تخزين للقرصين على Laravel Cloud.** عند الربط يحقن Laravel Cloud متغيرين فقط:
+   `FILESYSTEM_DISK` (`receipts`) و`LARAVEL_CLOUD_DISK_CONFIG` (JSON بكل bucket مربوط). وعند إقلاع التطبيق
+   **يستبدل** Laravel تعريف القرصين `receipts` و`public` في `config/filesystems.php` **كاملًا** بتعريف من
+   ذلك الـ JSON، فتُتجاهل هناك: `RECEIPTS_AWS_*` و`PUBLIC_AWS_*` و`RECEIPTS_FILESYSTEM_DRIVER` و
+   `PUBLIC_FILESYSTEM_DRIVER` (ومنها `PUBLIC_AWS_URL`: الرابط العام يأتي من التعريف المحقون). هذه المتغيرات
+   تهمّ **خارج Laravel Cloud فقط** (التطوير المحلي، أو خادم آخر، القسم 19).
+   - **الوثائق مقابل الواقع:** وثائق Laravel Cloud الرسمية تقول إنه يحقن `FILESYSTEM_DISK` ومتغيرات `AWS_*`،
+     لكن الواقع مختلف: `AWS_*` لا تُحقن، والآلية الفعلية في
+     `Illuminate\Foundation\CloudBootstrapper::configureDisks()`، **تحققنا منها في Laravel v13.32.0**. تعمل بعد
+     تحميل الإعدادات (`LoadConfiguration`)، فتسري فوق `config:cache` أيضًا.
+   - التعريف المحقون لكل قرص: `driver: s3`، والمفتاح والسر والـ bucket والرابط ونقطة الاتصال من الـ JSON،
+     و`region: auto`، و`use_path_style_endpoint: false`، و**`throw: false`**، **بلا `root` ولا `visibility`**.
+   - مع `throw: false` يعيد فشل الكتابة أو الحذف `false` بصمت. لذلك يفحص التطبيق النتيجة دائمًا:
+     - فشل حفظ الإيصال: تظهر للمبادر رسالة خطأ، ولا تُنشأ الحوالة.
+     - فشل حذف إيصال انتهت مدته: يبقى المسار في القاعدة، ويُسجَّل الفشل في "صحة النظام"، ويُرسل تنبيه بالبريد،
+       ويُعاد المحاولة يوميًا.
+     - فشل حفظ صورة في اللوحة (الهوية أو منشئ الصفحات): رسالة خطأ ولا يُحفظ التغيير.
+3. **ملاحظة نقل مهمة:** على Laravel Cloud لا `root`، فالإيصالات والصور في **جذر** الـ bucket (المسار المخزَّن
+   في القاعدة اسم الملف وحده). عند أي نقل مستقبلي (خادم داخل المملكة مثلًا، القسم 19) اضبط
+   `RECEIPTS_AWS_ROOT=` و`PUBLIC_AWS_ROOT=` **فارغين**، أو انقل الملفات إلى مجلد يطابق الـ `root` المضبوط، وإلا لن
+   تُوجد الملفات القديمة. (القيمتان الافتراضيتان في الشيفرة `receipts` و`public`.)
+4. القرصان في `config/filesystems.php` لا يرسلان `visibility` مع s3 أيضًا (R2 يرفض ترويسات ACL لكل كائن)،
+   فخصوصية كل ملف من إعداد الـ bucket نفسه، على Laravel Cloud وخارجه.
+5. **الرفع المؤقت في Livewire** على القرص `local` صراحةً (`config/livewire.php`)، **مستقلًا عن
+   `FILESYSTEM_DISK`**: لو تبع الـ Default disk (قرص s3) لانتقل Livewire إلى الرفع المباشر من المتصفح إلى
+   الـ bucket، وتمنعه سياسة أمان المحتوى فيتعطّل رفع الإيصالات والصور. يُرفع الملف أولًا إلى الخادم ثم يحفظه
+   التطبيق في الـ bucket. **يصحّ هذا ما دامت هناك نسخة واحدة من التطبيق** (القسم 7). عند تفعيل autoscaling
+   أو أكثر من نسخة يجب مراجعته، لأن الملف المؤقت قد يكون على نسخة غير التي تستقبل طلب الحفظ.
+6. **ما يستخدم الـ disk الافتراضي في الشيفرة** (فيقع على `aljawna-receipts` الخاص): لا شيء يكتب عليه حاليًا.
+   كل تخزين في الشيفرة يسمّي قرصه صراحةً (`receipts` أو `public` أو `backups`). وما يتبع الافتراضي نظريًا:
+   حقل `FileUpload` في Filament بلا `->disk()` (الحقل الوحيد في منشئ الصفحات يحدده)، ومرفقات `RichEditor`
+   (لا زر إرفاق في محرر منشئ الصفحات)، والتصدير و`ImageColumn`/`ImageEntry` في Filament (غير مستخدمة).
 
 ---
 
@@ -130,6 +161,7 @@ R2 يطبّق الخصوصية على مستوى الـ bucket كله، فيلز
 1. اضغط **App cluster** في لوحة البيئة:
    - الحجم: Flex صغير كبداية، ونسخة واحدة (replica). **Scale to zero** معطَّل للإنتاج، لأن فحص المراقبة
      من طلبات الويب يحتاج بيئة مستيقظة، والإيقاظ يؤخّر أول زائر.
+   - **لا تفعّل autoscaling ولا أكثر من نسخة** قبل مراجعة الرفع المؤقت في Livewire (القسم 6، البند 5).
    - فعّل **Scheduler**: يشغّل `php artisan schedule:run` كل دقيقة (المهام في `routes/console.php`).
    - **Background processes → New background process → Queue worker:** اتصال `redis`، عملية واحدة.
      يعيد Laravel Cloud تشغيله بعد كل نشر.
@@ -197,9 +229,7 @@ REDIS_CLIENT=phpredis
 SESSION_DRIVER=redis
 CACHE_STORE=redis
 QUEUE_CONNECTION=redis
-RECEIPTS_FILESYSTEM_DRIVER=s3
-PUBLIC_FILESYSTEM_DRIVER=s3
-PUBLIC_AWS_URL=<من إعدادات الـ bucket العام>
+# لا متغيرات تخزين للقرصين receipts وpublic: يحقن Laravel Cloud تعريفهما (القسم 6)
 TRUSTED_PROXIES=
 TRUSTED_PROXY_CLIENT_IP_HEADER=
 TURNSTILE_ENABLED=true
@@ -226,11 +256,15 @@ MAIL_* و ALERT_EMAIL
 ### 10.1 حساب Cloudflare المنفصل وR2
 1. أنشئ حساب Cloudflare جديدًا ببريد المالك، وفعّل التحقق بخطوتين.
 2. **R2 Object Storage** → فعّل الخدمة (تطلب وسيلة دفع؛ الاستخدام المتوقع داخل الحصة المجانية).
-3. **Create bucket:** الاسم `ajawna-backups`، و**Location → Specify jurisdiction → European Union (EU)**.
+3. **Create bucket:** الاسم `aljawna-backups`، و**Location → Specify jurisdiction → European Union (EU)**.
 4. **R2 → Manage API tokens → Create API token:**
-   - الصلاحية **Object Read & Write**، ومقصورة على bucket `ajawna-backups` وحده.
+   - الصلاحية **Object Read & Write**، ومقصورة على bucket `aljawna-backups` وحده.
    - انسخ **Access Key ID** و**Secret Access Key** مرة واحدة إلى مدير كلمات المرور.
-   - نقطة الاتصال للـ bucket الأوروبي: `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`.
+   - **نقطة الاتصال (S3 API endpoint): انسخها من إعدادات الـ bucket في Cloudflare** (R2 → `aljawna-backups`
+     → **Settings**) ولا تكتبها يدويًا. الصيغة بـ `.eu`
+     (`https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`) لا تصح إلا لـ bucket أُنشئ بخيار **EU jurisdiction**؛
+     الـ bucket العادي نقطته `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` بلا `.eu`، واستعمال الصيغة
+     الخاطئة يُفشل الاتصال بالـ bucket.
 5. (للتجارب الدورية، القسم 17.4) أنشئ رمزًا ثانيًا **Object Read only** للـ bucket نفسه.
 
 ### 10.2 مفتاح التشفير
@@ -249,8 +283,8 @@ php -r "echo 'base64:'.base64_encode(sodium_crypto_secretstream_xchacha20poly130
 BACKUP_FILESYSTEM_DRIVER=s3
 BACKUP_R2_ACCESS_KEY_ID=<من 10.1>
 BACKUP_R2_SECRET_ACCESS_KEY=<من 10.1>
-BACKUP_R2_BUCKET=ajawna-backups
-BACKUP_R2_ENDPOINT=https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com
+BACKUP_R2_BUCKET=aljawna-backups
+BACKUP_R2_ENDPOINT=<منسوخة من Settings الخاصة بـ aljawna-backups في Cloudflare (10.1)>
 BACKUP_R2_REGION=auto
 BACKUP_ENCRYPTION_KEY=<من 10.2>
 RECEIPTS_BACKUP_ENABLED=true
@@ -464,8 +498,8 @@ php artisan backup:restore-receipts --overwrite --force  # كلها من الن�
 4. **Turnstile:** Cloudflare → Turnstile → الـ widget → **Hostname management** → أضف الدومين الجديد
    (والمفاتيح نفسها تعمل). بعد الانتقال احذف القديم.
 5. **UptimeRobot:** حدّث رابطي المراقبتين (`/` و`/up`) إلى الدومين الجديد.
-6. **Bucket عام:** Laravel Cloud يضيف دومينات البيئة إلى CORS تلقائيًا. إن ربطت دومينًا مخصصًا بالـ bucket
-   فحدّث `PUBLIC_AWS_URL`.
+6. **Bucket عام:** Laravel Cloud يضيف دومينات البيئة إلى CORS تلقائيًا. رابط الصور العامة يأتي من تعريف
+   القرص المحقون (القسم 6)، فلا متغير يُحدَّث؛ أعد النشر فقط إن ربطت دومينًا مخصصًا بالـ bucket.
 7. `docs/POST-DEPLOY-CHECKLIST.md` كاملة على الدومين الجديد.
 8. بعد أسبوع على الأقل: افصل الدومين القديم من البيئة واحذف سجلاته. (HSTS سُجّل في متصفحات الزوار للدومين
    القديم، ولا يضر.)
@@ -481,7 +515,10 @@ php artisan backup:restore-receipts --overwrite --force  # كلها من الن�
 - PostgreSQL 17، وRedis أو Valkey، وNginx وPHP-FPM، وTLS.
 - عامل طوابير دائم (Supervisor: `php artisan queue:work redis`)، وCron كل دقيقة: `php artisan schedule:run`.
 - تخزين: قرص محلي خاص للإيصالات (`RECEIPTS_FILESYSTEM_DRIVER=local`) أو تخزين كائنات متوافق مع S3 داخل
-  المملكة (`s3` مع `RECEIPTS_AWS_*`)، ومثله للقرص العام.
+  المملكة (`s3` مع `RECEIPTS_AWS_*`)، ومثله للقرص العام. خارج Laravel Cloud تُقرأ هذه المتغيرات فعلًا.
+- **`root`:** الملفات على Laravel Cloud في جذر الـ bucket (القسم 6 البند 3). اضبط `RECEIPTS_AWS_ROOT=`
+  و`PUBLIC_AWS_ROOT=` فارغين إن نقلت الملفات كما هي، أو انقلها إلى مجلد يطابق الـ `root` المضبوط.
+  مع القرص المحلي يكون الجذر `storage/app/private/receipts` و`storage/app/public`، فتُنسخ الملفات إليه مباشرة.
 
 **خطوات النقل:**
 1. جهّز الخادم وانشر الشيفرة نفسها، بـ `.env` كامل (القسم 9) مع:

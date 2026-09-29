@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\StorageOperationFailed;
 use App\Models\Transfer;
 use App\Support\ReceiptType;
 use App\Support\StoredReceipt;
 use GdImage;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * حفظ الإيصالات وتقديمها (docs/SPEC.md §12.6).
@@ -23,6 +26,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * - الصور يُعاد ترميزها عبر GD، فتسقط بيانات EXIF وكل ما سوى البكسلات، بعد تطبيق اتجاه الصورة.
  * - الحفظ على قرص خاص باسم عشوائي، والعرض عبر رابط موقّع مؤقت بعد فحص Policy.
  * - لا يُسجَّل شيء من محتوى الإيصال في السجلات.
+ * - نتيجة الكتابة والحذف تُفحص دائمًا: على Laravel Cloud تعريف القرص من LARAVEL_CLOUD_DISK_CONFIG
+ *   بـ throw: false، فالفشل يعيد false بصمت. فشل الحفظ يُبلَّغ للمستخدم ولا تُنشأ الحوالة،
+ *   وفشل الحذف يرمي StorageOperationFailed فلا يُمسح المسار من القاعدة.
  */
 class ReceiptStorage
 {
@@ -43,14 +49,30 @@ class ReceiptStorage
         $contents = $type->isImage() ? $this->reencode($original, $type) : $original;
         $path = Str::random(40).'.'.$type->extension();
 
-        $this->disk()->put($path, $contents);
+        try {
+            $stored = $this->disk()->put($path, $contents);
+        } catch (Throwable $exception) {
+            $stored = false;
+            Log::error('Receipt could not be stored.', ['exception' => $exception::class]);
+        }
+
+        if ($stored !== true) {
+            Log::error('Receipt storage write failed.', ['disk' => $this->diskName()]);
+
+            throw $this->invalid('receipt_store_failed');
+        }
 
         return new StoredReceipt($path, hash('sha256', $original));
     }
 
+    /**
+     * @throws StorageOperationFailed
+     */
     public function delete(string $path): void
     {
-        $this->disk()->delete($path);
+        if ($this->disk()->delete($path) !== true) {
+            throw StorageOperationFailed::delete($this->diskName());
+        }
     }
 
     public function exists(string $path): bool
@@ -118,7 +140,12 @@ class ReceiptStorage
     public function disk(): FilesystemAdapter
     {
         /** @var FilesystemAdapter */
-        return Storage::disk((string) config('security.receipts.disk'));
+        return Storage::disk($this->diskName());
+    }
+
+    private function diskName(): string
+    {
+        return (string) config('security.receipts.disk');
     }
 
     /**

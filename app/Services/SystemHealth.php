@@ -36,6 +36,7 @@ class SystemHealth
             $this->scheduler(),
             $this->receiptsBackup(),
             $this->databaseBackup(),
+            $this->receiptsPurge(),
             $this->failedJobs(),
             $this->recentErrors(),
         ];
@@ -118,6 +119,29 @@ class SystemHealth
     public function databaseBackup(): array
     {
         return $this->backupCheck('database_backup', SystemHeartbeat::DATABASE_BACKUP, 'monitoring.database_backup');
+    }
+
+    /**
+     * آخر تشغيل لحذف صور الإيصالات المنتهية: فاشل إن تعذّر حذف أي صورة (تبقى في القاعدة ويُعاد
+     * المحاولة يوميًا). لا مهلة تأخّر: توقّف المجدول نفسه له تنبيهه.
+     *
+     * @return Check
+     */
+    public function receiptsPurge(): array
+    {
+        $heartbeat = $this->heartbeat(SystemHeartbeat::RECEIPTS_PURGE);
+
+        if ($heartbeat === null) {
+            return $this->check('receipts_purge', HealthStatus::Unknown, __('health.values.never'));
+        }
+
+        $failed = $heartbeat->status !== SystemHeartbeat::BACKUP_SUCCEEDED;
+
+        return $this->check(
+            'receipts_purge',
+            $failed ? HealthStatus::Failing : HealthStatus::Ok,
+            __($failed ? 'health.values.backup_failed' : 'health.values.backup_succeeded', ['time' => $this->formatTime($heartbeat->last_seen_at)]),
+        );
     }
 
     /**

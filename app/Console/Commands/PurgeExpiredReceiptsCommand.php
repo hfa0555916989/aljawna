@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\SystemHeartbeat;
 use App\Services\ReceiptRetention;
 use Illuminate\Console\Command;
 
@@ -25,6 +26,10 @@ class PurgeExpiredReceiptsCommand extends Command
         $dryRun = (bool) $this->option('dry-run');
 
         if ($beneficiaries->isEmpty()) {
+            if (! $dryRun) {
+                SystemHeartbeat::recordReceiptsPurge(true);
+            }
+
             $this->info('لا إيصالات انتهت مدة الاحتفاظ بها (قبل '.$retention->cutoff()->toDateString().').');
 
             return self::SUCCESS;
@@ -55,8 +60,11 @@ class PurgeExpiredReceiptsCommand extends Command
             return self::SUCCESS;
         }
 
+        // الفشل يظهر في "صحة النظام" ويطلق تنبيه البريد من monitor:check.
+        SystemHeartbeat::recordReceiptsPurge($failed === 0);
+
         if ($failed > 0) {
-            $this->error("فشل حذف {$failed} إيصالًا، ويُعاد المحاولة في التشغيل التالي.");
+            $this->error("فشل حذف {$failed} إيصالًا، وبقيت مساراتها ويُعاد المحاولة في التشغيل التالي.");
 
             return self::FAILURE;
         }

@@ -27,6 +27,8 @@ class SystemHeartbeat extends Model
 
     public const string DATABASE_BACKUP = 'database_backup';
 
+    public const string RECEIPTS_PURGE = 'receipts_purge';
+
     /**
      * أول فحص مراقبة: مرجع مهلة السماح قبل التنبيه على مكوّن لم ينبض قط.
      */
@@ -61,6 +63,14 @@ class SystemHeartbeat extends Model
     public static function recordDatabaseBackup(bool $succeeded): void
     {
         static::beat(self::DATABASE_BACKUP, $succeeded ? self::BACKUP_SUCCEEDED : self::BACKUP_FAILED);
+    }
+
+    /**
+     * يستدعيه أمر حذف الإيصالات المنتهية (receipts:purge-expired) بعد كل تشغيل فعلي، ناجحًا أو فاشلًا.
+     */
+    public static function recordReceiptsPurge(bool $succeeded): void
+    {
+        static::beat(self::RECEIPTS_PURGE, $succeeded ? self::BACKUP_SUCCEEDED : self::BACKUP_FAILED);
     }
 
     public static function named(string $name): ?self

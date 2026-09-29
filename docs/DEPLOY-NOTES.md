@@ -46,22 +46,51 @@ Redis (Valkey ومنه) تعمل دون تغيير في الشيفرة.
 
 ### تخزين الملفات (قابل للتبديل محلي/سحابي)
 
-| المتغير | الغرض |
+> **على Laravel Cloud لا يُكتب أي متغير من هذا الجدول:** تعريف القرصين `receipts` و`public` يأتي من
+> `LARAVEL_CLOUD_DISK_CONFIG` ويستبدل تعريف `config/filesystems.php` كاملًا، فتُتجاهل هناك كل المتغيرات أدناه.
+> هي للتطوير المحلي ولأي خادم خارج Laravel Cloud فقط (docs/RUNBOOK.md القسمان 6 و19).
+
+| المتغير | الغرض (خارج Laravel Cloud فقط) |
 |---|---|
 | `RECEIPTS_FILESYSTEM_DRIVER` | `local` أو `s3` لقرص إيصالات الحوالات الخاص (`config/filesystems.php`) |
-| `RECEIPTS_AWS_ACCESS_KEY_ID`, `RECEIPTS_AWS_SECRET_ACCESS_KEY`, `RECEIPTS_AWS_DEFAULT_REGION`, `RECEIPTS_AWS_BUCKET`, `RECEIPTS_AWS_URL`, `RECEIPTS_AWS_ENDPOINT`, `RECEIPTS_AWS_USE_PATH_STYLE_ENDPOINT`, `RECEIPTS_AWS_ROOT` | بيانات bucket متوافق مع S3 للإيصالات عند `RECEIPTS_FILESYSTEM_DRIVER=s3`؛ تُترك فارغة لاستخدام `AWS_*` العامة إن كانت كافية |
+| `RECEIPTS_AWS_ACCESS_KEY_ID`, `RECEIPTS_AWS_SECRET_ACCESS_KEY`, `RECEIPTS_AWS_DEFAULT_REGION`, `RECEIPTS_AWS_BUCKET`, `RECEIPTS_AWS_URL`, `RECEIPTS_AWS_ENDPOINT`, `RECEIPTS_AWS_USE_PATH_STYLE_ENDPOINT`, `RECEIPTS_AWS_ROOT` | بيانات bucket متوافق مع S3 للإيصالات عند `RECEIPTS_FILESYSTEM_DRIVER=s3`، تُكتب كلها صراحةً. `RECEIPTS_AWS_ROOT` فارغ عند نقل ملفات من Laravel Cloud كما هي |
 | `PUBLIC_FILESYSTEM_DRIVER` | `local` أو `s3` لقرص صور الهوية (الشعار والأيقونة) وصور منشئ الصفحات |
-| `PUBLIC_AWS_ACCESS_KEY_ID`, `PUBLIC_AWS_SECRET_ACCESS_KEY`, `PUBLIC_AWS_DEFAULT_REGION`, `PUBLIC_AWS_BUCKET`, `PUBLIC_AWS_URL`, `PUBLIC_AWS_ENDPOINT`, `PUBLIC_AWS_USE_PATH_STYLE_ENDPOINT`, `PUBLIC_AWS_ROOT` | نفس ما سبق لقرص الصور العام |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET`, `AWS_USE_PATH_STYLE_ENDPOINT` | قيم S3 عامة تُستخدم احتياطًا إن لم تُحدَّد نظائرها أعلاه |
+| `PUBLIC_AWS_ACCESS_KEY_ID`, `PUBLIC_AWS_SECRET_ACCESS_KEY`, `PUBLIC_AWS_DEFAULT_REGION`, `PUBLIC_AWS_BUCKET`, `PUBLIC_AWS_URL`, `PUBLIC_AWS_ENDPOINT`, `PUBLIC_AWS_USE_PATH_STYLE_ENDPOINT`, `PUBLIC_AWS_ROOT` | نفس ما سبق لقرص الصور العام، كلها صراحةً. `PUBLIC_AWS_ROOT` فارغ عند نقل ملفات من Laravel Cloud كما هي |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET`, `AWS_USE_PATH_STYLE_ENDPOINT` | الشيفرة تعود إليها إن لم تُحدَّد نظائرها أعلاه. لا يُعتمد عليها: اكتب `RECEIPTS_AWS_*` و`PUBLIC_AWS_*` صراحةً |
 
 الإيصالات تبقى خاصة دائمًا وتُعرض بروابط موقّعة مؤقتة (`transfers.receipt`) بعد
 فحص Policy عند كل طلب، بصرف النظر عن نوع القرص. صور الهوية والصفحات على قرص
 عام لأنها تُعرض للجميع.
 
-على Laravel Cloud نظام الملفات مؤقت ولا يُشارَك بين النسخ، فيُضبط القرصان على
-`s3` مع bucketين من Laravel Cloud Object Storage: خاص للإيصالات (disk name `receipts`،
-default)، وعام للصور (disk name `public`)، و`PUBLIC_AWS_URL` يُنسخ يدويًا من إعدادات
-الـ bucket العام (docs/RUNBOOK.md القسم 6).
+على Laravel Cloud نظام الملفات مؤقت ولا يُشارَك بين النسخ، فيُربط bucketان من Laravel Cloud
+Object Storage: `aljawna-receipts` خاص للإيصالات (disk name `receipts`)، و`aljawna-public` عام
+للصور (disk name `public`)، والاسمان يطابقان اسمي القرصين في الشيفرة حرفيًا.
+
+**ما يحقنه Laravel Cloud فعلًا:** متغيران فقط، `FILESYSTEM_DISK` و`LARAVEL_CLOUD_DISK_CONFIG` (JSON بكل
+bucket مربوط). وعند الإقلاع يستبدل `Illuminate\Foundation\CloudBootstrapper::configureDisks()` تعريف
+القرصين كاملًا: `driver: s3` و`region: auto` و`use_path_style_endpoint: false` و**`throw: false`**، **بلا
+`root` ولا `visibility`**، والرابط العام للقرص `public` من الـ JSON. وثائق Laravel Cloud الرسمية تذكر حقن
+`AWS_*`، لكن الواقع مختلف: `AWS_*` لا تُحقن. **تحققنا من الآلية في Laravel v13.32.0.**
+
+- مع `throw: false` يفحص التطبيق نتيجة كل كتابة وحذف (`ReceiptStorage` و`BrandingImageStorage`):
+  - فشل حفظ الإيصال: رسالة خطأ للمبادر، ولا تُنشأ الحوالة.
+  - فشل حذف إيصال بعد مدة الاحتفاظ: يبقى المسار، ويظهر فشلًا في "صحة النظام"، ويُرسل تنبيه بالبريد.
+  - فشل حفظ صورة في اللوحة: رسالة خطأ، ولا يُحفظ التغيير.
+- **ملاحظة نقل:** لا `root` على Laravel Cloud، فالإيصالات والصور في جذر الـ bucket. عند أي نقل مستقبلي
+  (خادم داخل المملكة مثلًا) اضبط `RECEIPTS_AWS_ROOT` و`PUBLIC_AWS_ROOT` فارغين، أو انقل الملفات إلى مجلد
+  يطابق الـ `root` المضبوط.
+- خارج Laravel Cloud لا يرسل القرصان `visibility` مع s3 أيضًا (R2 يرفضها)، فالخصوصية من إعداد الـ bucket.
+
+**`aljawna-receipts` هو الـ Default disk عمدًا:** Laravel Cloud يفرض disk افتراضيًا (أول bucket يُربط)،
+فيُربط `aljawna-receipts` أولًا فيُحقن `FILESYSTEM_DISK=receipts`. الخاص أسلم من العام إذا كُتب ملف على
+الـ disk الافتراضي بالخطأ. لا يُكتب `FILESYSTEM_DISK` يدويًا (docs/RUNBOOK.md القسم 6).
+
+الرفع المؤقت في Livewire (الإيصالات والصور) على القرص `local` صراحةً (`config/livewire.php`)،
+**مستقلًا عن `FILESYSTEM_DISK`**، فلا ينتقل إلى الرفع المباشر من المتصفح إلى الـ bucket الذي
+تمنعه سياسة أمان المحتوى. ثم يحفظ التطبيق الملف في الـ bucket. **يصحّ هذا ما دامت هناك نسخة
+واحدة من التطبيق.**
+عند تفعيل autoscaling أو أكثر من نسخة يجب مراجعته، لأن الملف المؤقت قد يكون على نسخة غير
+التي تستقبل طلب الحفظ.
 
 | المتغير | الغرض |
 |---|---|
@@ -72,7 +101,7 @@ default)، وعام للصور (disk name `public`)، و`PUBLIC_AWS_URL` يُن�
 | المتغير | الغرض |
 |---|---|
 | `BACKUP_FILESYSTEM_DRIVER` | `s3` في الإنتاج (Cloudflare R2)، و`local` للتطوير فقط |
-| `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`, `BACKUP_R2_BUCKET`, `BACKUP_R2_ENDPOINT`, `BACKUP_R2_REGION`, `BACKUP_R2_USE_PATH_STYLE_ENDPOINT`, `BACKUP_R2_ROOT` | bucket R2 في **حساب Cloudflare منفصل** برمز مقصور عليه. لا تعود إلى `AWS_*` المحقونة أبدًا |
+| `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`, `BACKUP_R2_BUCKET`, `BACKUP_R2_ENDPOINT`, `BACKUP_R2_REGION`, `BACKUP_R2_USE_PATH_STYLE_ENDPOINT`, `BACKUP_R2_ROOT` | bucket R2 `aljawna-backups` في **حساب Cloudflare منفصل** برمز مقصور عليه. لا تعود إلى `AWS_*` المحقونة أبدًا. `BACKUP_R2_ENDPOINT` يُنسخ من إعدادات الـ bucket في Cloudflare: الصيغة بـ `.eu` (`https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`) لا تصح إلا لـ bucket أُنشئ بخيار EU jurisdiction |
 | `BACKUP_ENCRYPTION_KEY` | مفتاح التشفير قبل الرفع (`base64:` + 32 بايت). يُحفظ خارج Laravel Cloud أيضًا؛ ضياعه = استحالة الاسترجاع |
 | `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY`, `BACKUP_KEEP_MONTHLY` | احتفاظ نسخ قاعدة البيانات (14 يومًا / 8 أسابيع / 6 أشهر) |
 | `RECEIPTS_BACKUP_ENABLED`, `RECEIPTS_BACKUP_MAX_AGE_HOURS` | تفعيل نسخ الإيصالات كل ساعة، والتنبيه إن فشل آخرها أو تأخر أكثر من 3 ساعات |
