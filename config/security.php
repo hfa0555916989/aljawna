@@ -47,6 +47,11 @@ return [
     | التحقق بخطوتين (docs/DECISIONS.md)
     |--------------------------------------------------------------------------
     |
+    | required: إلزام أدوار اللوحة بالتحقق بخطوتين (TWO_FACTOR_REQUIRED). عند false
+    | تطلب روابط الدعوة والاستعادة تأكيد رقم الجوال وكلمة مرور فقط، ويكون الدخول
+    | بالجوال وكلمة المرور (App\Support\TwoFactorPolicy).
+    | simple_link_hours: صلاحية روابط الدعوة والاستعادة عند false.
+    | max_phone_attempts: أرقام جوال خاطئة على الرابط نفسه قبل إلغائه عند false.
     | setup_link_minutes: صلاحية رابط الإعداد من php artisan admin:reset-2fa.
     | recovery_regeneration_max_attempts: رموز TOTP خاطئة في صفحة تجديد رموز
     | الاسترداد لكل حساب خلال recovery_regeneration_decay_minutes قبل إيقافها.
@@ -54,6 +59,9 @@ return [
     */
 
     'two_factor' => [
+        'required' => (bool) env('TWO_FACTOR_REQUIRED', true),
+        'simple_link_hours' => 48,
+        'max_phone_attempts' => 5,
         'setup_link_minutes' => (int) env('TWO_FACTOR_SETUP_LINK_MINUTES', 30),
         'recovery_regeneration_max_attempts' => 5,
         'recovery_regeneration_decay_minutes' => 15,

@@ -39,11 +39,16 @@ final class TwoFactorSession
 
     /**
      * هل يجوز لهذه الجلسة أي وصول؟ المبادر دائمًا. دور اللوحة بشرط تحقق مفعَّل
-     * وجلسة لم تُعلَّم "لم تجتز" (docs/DECISIONS.md، T20).
+     * وجلسة لم تُعلَّم "لم تجتز" (docs/DECISIONS.md، T20)، ما لم يكن التحقق غير
+     * إلزامي (TWO_FACTOR_REQUIRED=false) فتكفي كلمة المرور.
      */
     public static function allowsAccess(User $user): bool
     {
-        return ! $user->hasPanelRole() || ($user->hasTwoFactorEnabled() && ! self::isUnverified($user));
+        if (! $user->hasPanelRole() || ! TwoFactorPolicy::isRequired()) {
+            return true;
+        }
+
+        return $user->hasTwoFactorEnabled() && ! self::isUnverified($user);
     }
 
     /**
@@ -56,6 +61,6 @@ final class TwoFactorSession
 
     private static function isRequiredChallenge(User $user): bool
     {
-        return $user->hasPanelRole() && $user->hasTwoFactorEnabled();
+        return TwoFactorPolicy::isRequired() && $user->hasPanelRole() && $user->hasTwoFactorEnabled();
     }
 }

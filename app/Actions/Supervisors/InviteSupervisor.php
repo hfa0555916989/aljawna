@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Audit;
 use App\Support\PermissionTemplates;
 use App\Support\SaudiPhone;
+use App\Support\TwoFactorPolicy;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +17,8 @@ use InvalidArgumentException;
 
 /**
  * دعوة مشرف برقم جواله (docs/SPEC.md FR-19, §6).
- * الرمز 32 بايت عشوائي، يُخزَّن مجزّأ، وينتهي بعد 72 ساعة.
+ * الرمز 32 بايت عشوائي، يُخزَّن مجزّأ، وينتهي بعد 72 ساعة، أو 48 ساعة متى كان
+ * TWO_FACTOR_REQUIRED=false (App\Support\TwoFactorPolicy).
  */
 class InviteSupervisor
 {
@@ -75,7 +77,7 @@ class InviteSupervisor
                 'token_hash' => hash('sha256', $plainToken),
                 'permissions' => array_values(array_unique($permissions)),
                 'invited_by' => $actor->id,
-                'expires_at' => now()->addHours(self::LIFETIME_HOURS),
+                'expires_at' => now()->addHours(self::lifetimeHours()),
             ]);
 
             Audit::record(self::AUDIT_ACTION, $invite, [
@@ -89,6 +91,11 @@ class InviteSupervisor
             'invite' => $invite,
             'whatsapp_url' => $this->whatsappUrl($phone, $plainToken),
         ];
+    }
+
+    public static function lifetimeHours(): int
+    {
+        return TwoFactorPolicy::isRequired() ? self::LIFETIME_HOURS : TwoFactorPolicy::simpleLinkHours();
     }
 
     private function whatsappUrl(string $phone, string $plainToken): string

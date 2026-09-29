@@ -6,6 +6,7 @@ namespace App\Livewire\Auth;
 
 use App\Actions\Admin\CompleteAdminPasswordReset;
 use App\Models\AdminPasswordReset;
+use App\Support\TwoFactorPolicy;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +17,8 @@ use Livewire\Component;
 
 /**
  * تعيين كلمة مرور مدير من رابط الطوارئ php artisan admin:reset-link. لا رابط لهذه
- * الصفحة في أي قائمة؛ ويبقى التحقق بخطوتين مطلوبًا عند الدخول بعدها.
+ * الصفحة في أي قائمة؛ ويبقى التحقق بخطوتين مطلوبًا عند الدخول بعدها. متى كان
+ * TWO_FACTOR_REQUIRED=false تطلب رقم الجوال لتأكيده مع كلمة المرور الجديدة.
  */
 #[Layout('layouts.app')]
 #[Title('تعيين كلمة مرور جديدة')]
@@ -24,6 +26,8 @@ class ResetAdminPassword extends Component
 {
     #[Locked]
     public string $token = '';
+
+    public string $phone = '';
 
     public string $password = '';
 
@@ -45,9 +49,16 @@ class ResetAdminPassword extends Component
         $this->validate();
 
         try {
-            $complete->handle($this->token, $this->password);
+            $complete->handle($this->token, $this->password, TwoFactorPolicy::isRequired() ? null : $this->phone);
         } catch (ValidationException $exception) {
-            $this->invalid = true;
+            if (TwoFactorPolicy::isRequired()) {
+                $this->invalid = true;
+
+                throw $exception;
+            }
+
+            $this->reset('password', 'password_confirmation');
+            $this->invalid = ! (AdminPasswordReset::query()->where('token_hash', hash('sha256', $this->token))->first()?->isUsable() ?? false);
 
             throw $exception;
         }
@@ -57,7 +68,7 @@ class ResetAdminPassword extends Component
 
     public function render(): View
     {
-        return view('livewire.auth.reset-password');
+        return view('livewire.auth.reset-password', ['askPhone' => ! TwoFactorPolicy::isRequired()]);
     }
 
     /**
@@ -65,6 +76,14 @@ class ResetAdminPassword extends Component
      */
     protected function rules(): array
     {
+        if (! TwoFactorPolicy::isRequired()) {
+            return [
+                'phone' => ['required', 'string', 'max:32'],
+                'password' => ['required', 'string', 'max:255', 'confirmed', TwoFactorPolicy::simplePasswordRule(), $this->passwordNotPhoneRule()],
+                'password_confirmation' => ['required', 'string'],
+            ];
+        }
+
         return [
             'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed', $this->passwordNotPhoneRule()],
             'password_confirmation' => ['required', 'string'],

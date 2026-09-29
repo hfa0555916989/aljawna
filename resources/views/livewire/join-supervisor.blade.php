@@ -15,18 +15,39 @@
                 <p role="alert" class="rounded-[10px] border border-bad px-3 py-2 text-sm text-bad">{{ $message }}</p>
             @enderror
 
-            <div>
-                <label for="phone" class="block text-sm font-medium text-ink">رقم الجوال</label>
-                <input
-                    id="phone"
-                    type="text"
-                    dir="ltr"
-                    value="{{ $phone }}"
-                    readonly
-                    class="mt-1.5 block w-full min-h-11 rounded-[10px] border border-line bg-surface px-3 py-2 text-base text-ink"
-                >
-                <p class="mt-1 text-sm text-muted">{{ __('supervisors.join.phone_fixed') }}</p>
-            </div>
+            @if ($simple)
+                <div>
+                    <label for="phone" class="block text-sm font-medium text-ink">رقم الجوال</label>
+                    <input
+                        id="phone"
+                        type="tel"
+                        inputmode="tel"
+                        dir="ltr"
+                        wire:model="phone"
+                        autocomplete="tel"
+                        placeholder="05XXXXXXXX"
+                        @error('phone') aria-invalid="true" aria-describedby="phone-error" @enderror
+                        class="mt-1.5 block w-full min-h-11 rounded-[10px] border border-line bg-surface px-3 py-2 text-start text-base text-ink placeholder:text-muted aria-invalid:border-bad"
+                    >
+                    <p class="mt-1 text-sm text-muted">{{ __('supervisors.join.phone_confirm') }}</p>
+                    @error('phone')
+                        <p id="phone-error" class="mt-1 text-sm text-bad">{{ $message }}</p>
+                    @enderror
+                </div>
+            @else
+                <div>
+                    <label for="phone" class="block text-sm font-medium text-ink">رقم الجوال</label>
+                    <input
+                        id="phone"
+                        type="text"
+                        dir="ltr"
+                        value="{{ $phone }}"
+                        readonly
+                        class="mt-1.5 block w-full min-h-11 rounded-[10px] border border-line bg-surface px-3 py-2 text-base text-ink"
+                    >
+                    <p class="mt-1 text-sm text-muted">{{ __('supervisors.join.phone_fixed') }}</p>
+                </div>
+            @endif
 
             <div>
                 <label for="full_name" class="block text-sm font-medium text-ink">الاسم الكامل</label>
@@ -43,10 +64,18 @@
                 @enderror
             </div>
 
-            <x-form.password-input name="password" label="كلمة المرور" autocomplete="new-password" />
+            @if ($simple)
+                <x-form.password-input name="password" label="كلمة المرور" autocomplete="new-password">
+                    <p class="mt-1 text-sm text-muted">{{ __('auth.panel_password_hint') }}</p>
+                </x-form.password-input>
+            @else
+                <x-form.password-input name="password" label="كلمة المرور" autocomplete="new-password" />
+            @endif
             <x-form.password-input name="password_confirmation" label="تأكيد كلمة المرور" autocomplete="new-password" />
 
-            <x-two-factor.enroll :qr="$enrollment['qr']" :secret="$enrollment['secret']" />
+            @if ($enrollment !== null)
+                <x-two-factor.enroll :qr="$enrollment['qr']" :secret="$enrollment['secret']" />
+            @endif
 
             <button type="submit" class="min-h-11 rounded-[10px] bg-pri px-4 py-2 text-base font-semibold text-pri-ink">
                 {{ __('supervisors.join.submit') }}
