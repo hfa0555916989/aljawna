@@ -235,6 +235,8 @@ TRUSTED_PROXY_CLIENT_IP_HEADER=
 TURNSTILE_ENABLED=true
 TURNSTILE_SITE_KEY=<حقيقي>
 TURNSTILE_SECRET_KEY=<حقيقي>
+# لا تحقق بخطوتين للمدير والمشرف: الدعوة والاستعادة بتأكيد رقم الجوال وكلمة مرور (القسم 12)
+TWO_FACTOR_REQUIRED=false
 # القسم 10 والقسم 11:
 BACKUP_* و RECEIPTS_BACKUP_ENABLED و DATABASE_BACKUP_ENABLED
 MAIL_* و ALERT_EMAIL
@@ -353,7 +355,14 @@ php artisan admin:invite +9665XXXXXXXX
 ```
 
    الأول يزرع مفاتيح الصلاحيات (ولا ينشئ مديرًا في الإنتاج). الثاني يطبع رابط دعوة صالحًا 48 ساعة
-   ورابط `wa.me`. افتح الرابط على جوالك، وأعدّ التحقق بخطوتين في صفحة الدعوة نفسها، واحفظ رموز الاسترداد.
+   ولمرة واحدة، ورابط `wa.me`. افتح الرابط على جوالك:
+   - مع `TWO_FACTOR_REQUIRED=false` (الإنتاج): اكتب رقم جوالك المدعو، ثم اسمك وكلمة المرور وتأكيدها
+     (8 على الأقل بحروف وأرقام ورموز). الرقم الخاطئ يُرفض برسالة عامة، وبعد 5 أرقام خاطئة يُلغى الرابط
+     فأصدر دعوة جديدة. دعوات المشرفين من اللوحة تعمل بالطريقة نفسها (48 ساعة).
+   - مع `true`: أعدّ التحقق بخطوتين في صفحة الدعوة نفسها، واحفظ رموز الاسترداد.
+   - نسيت كلمة المرور: `php artisan admin:reset-link +9665XXXXXXXX` (أو `admin:reset-password`) يطبع رابط
+     تعيين لمرة واحدة ورابط `wa.me`. مع `false` يشمل المشرف، وصلاحيته 48 ساعة، ويطلب تأكيد رقم الجوال،
+     وتنتهي كل جلسات الحساب بعد التعيين. يُسجَّل الإصدار والتعيين في `audit_logs`.
 3. أكمل `docs/POST-DEPLOY-CHECKLIST.md`.
 
 ---
@@ -541,8 +550,8 @@ php artisan backup:restore-receipts --overwrite --force  # كلها من الن�
 | الأمر | الغرض |
 |---|---|
 | `php artisan admin:invite +9665…` | دعوة مدير (48 ساعة) |
-| `php artisan admin:reset-link +9665…` | رابط تعيين كلمة مرور لمدير |
-| `php artisan admin:reset-2fa +9665… --force` | إعادة إعداد التحقق بخطوتين |
+| `php artisan admin:reset-link +9665…` (أو `admin:reset-password`) | رابط تعيين كلمة مرور لمدير، أو لمشرف متى كان `TWO_FACTOR_REQUIRED=false` (48 ساعة، بتأكيد الجوال) |
+| `php artisan admin:reset-2fa +9665… --force` | إعادة إعداد التحقق بخطوتين (لا حاجة إليه متى كان `TWO_FACTOR_REQUIRED=false`) |
 | `php artisan alerts:test` | تنبيه بريد تجريبي إلى `ALERT_EMAIL` |
 | `php artisan monitor:check` | فحص المراقبة يدويًا |
 | `php artisan backup:database` | نسخة قاعدة بيانات الآن |

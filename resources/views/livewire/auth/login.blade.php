@@ -24,6 +24,24 @@
 
             <x-form.password-input name="password" label="كلمة المرور" autocomplete="current-password" />
 
+            @if ($turnstileSiteKey)
+                <div>
+                    <div
+                        wire:ignore
+                        x-data
+                        x-init="window.renderTurnstile($el, @js($turnstileSiteKey), (token) => { $wire.turnstileToken = token })"
+                        x-on:turnstile-reset.window="window.turnstile && window.turnstile.reset($el)"
+                    ></div>
+                    @error('turnstile')
+                        <p role="alert" class="mt-1.5 text-sm text-bad">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                @assets
+                    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+                @endassets
+            @endif
+
             <button
                 type="submit"
                 class="min-h-11 rounded-[10px] bg-pri px-4 py-2 text-base font-semibold text-pri-ink hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pri data-loading:opacity-60"

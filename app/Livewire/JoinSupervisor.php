@@ -8,7 +8,10 @@ use App\Actions\Supervisors\AcceptSupervisorInvite;
 use App\Livewire\Concerns\EnrollsTwoFactor;
 use App\Models\SupervisorInvite;
 use App\Rules\FullName;
+use App\Support\TwoFactorPolicy;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -17,6 +20,9 @@ use Livewire\Component;
 
 /**
  * إكمال تسجيل المشرف من رابط الدعوة (docs/SPEC.md §6). الرقم ثابت من الدعوة.
+ *
+ * متى كان TWO_FACTOR_REQUIRED=false: لا يُعرض رقم الدعوة، بل يكتبه المدعو ليؤكده،
+ * ثم الاسم وكلمة المرور فقط بلا QR ولا رموز استرداد (App\Support\TwoFactorPolicy).
  */
 #[Layout('layouts.app')]
 #[Title('الانضمام كمشرف')]
@@ -51,7 +57,9 @@ class JoinSupervisor extends Component
             return;
         }
 
-        $this->phone = $invite->phone;
+        if (TwoFactorPolicy::isRequired()) {
+            $this->phone = $invite->phone;
+        }
     }
 
     public function join(AcceptSupervisorInvite $accept): void
@@ -60,6 +68,12 @@ class JoinSupervisor extends Component
             throw ValidationException::withMessages([
                 'form' => __('supervisors.errors.token_used'),
             ]);
+        }
+
+        if (! TwoFactorPolicy::isRequired()) {
+            $this->joinWithoutTwoFactor($accept);
+
+            return;
         }
 
         $this->validate();
@@ -80,11 +94,13 @@ class JoinSupervisor extends Component
 
     public function render(): View
     {
-        if ($this->invalid || $this->recoveryCodes !== []) {
-            return view('livewire.join-supervisor', ['enrollment' => null]);
+        $simple = ! TwoFactorPolicy::isRequired();
+
+        if ($simple || $this->invalid || $this->recoveryCodes !== []) {
+            return view('livewire.join-supervisor', ['enrollment' => null, 'simple' => $simple]);
         }
 
-        return view('livewire.join-supervisor', ['enrollment' => $this->enrollmentViewData($this->phone)]);
+        return view('livewire.join-supervisor', ['enrollment' => $this->enrollmentViewData($this->phone), 'simple' => false]);
     }
 
     /**
@@ -92,6 +108,15 @@ class JoinSupervisor extends Component
      */
     protected function rules(): array
     {
+        if (! TwoFactorPolicy::isRequired()) {
+            return [
+                'phone' => ['required', 'string', 'max:32'],
+                'full_name' => ['required', 'string', 'max:255', new FullName],
+                'password' => ['required', 'string', 'max:255', 'confirmed', TwoFactorPolicy::simplePasswordRule(), $this->passwordNotPhoneRule()],
+                'password_confirmation' => ['required', 'string'],
+            ];
+        }
+
         return [
             'full_name' => ['required', 'string', 'max:255', new FullName],
             'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed', $this->passwordNotPhoneRule()],
@@ -103,6 +128,31 @@ class JoinSupervisor extends Component
     protected function enrollmentContext(): string
     {
         return 'join:supervisor:'.$this->token;
+    }
+
+    /**
+     * الوضع المبسّط: تأكيد رقم الدعوة ثم إنشاء الحساب والدخول مباشرة. الرقم الخاطئ
+     * لا يُبطل الصفحة إلا إذا أُلغي الرابط ببلوغ حد المحاولات.
+     */
+    private function joinWithoutTwoFactor(AcceptSupervisorInvite $accept): void
+    {
+        $this->validate();
+
+        try {
+            $result = $accept->handle($this->token, $this->full_name, $this->password, (string) request()->ip(), null, $this->phone);
+        } catch (ValidationException $exception) {
+            $this->reset('password', 'password_confirmation');
+            $this->invalid = ! (SupervisorInvite::query()->where('token_hash', hash('sha256', $this->token))->first()?->isUsable() ?? false);
+
+            throw $exception;
+        }
+
+        $this->reset('password', 'password_confirmation');
+
+        Auth::login($result['user']);
+        Session::regenerate();
+
+        $this->redirect($result['user']->homeUrl());
     }
 
     private function passwordNotPhoneRule(): \Closure

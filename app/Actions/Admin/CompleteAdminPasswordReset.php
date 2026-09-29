@@ -7,13 +7,16 @@ namespace App\Actions\Admin;
 use App\Models\AdminPasswordReset;
 use App\Models\User;
 use App\Services\Audit;
+use App\Support\LinkPhoneConfirmation;
 use App\Support\SessionEpoch;
-use App\UserRole;
+use App\Support\TwoFactorPolicy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
  * تعيين كلمة مرور المدير من رابط admin:reset-link واستهلاكه، وإنهاء كل جلساته القائمة.
+ * متى كان TWO_FACTOR_REQUIRED=false: يشمل المشرف، ويجب $phoneInput مطابقًا لرقم
+ * الحساب، وإلا رُفض برسالة عامة واحتُسبت محاولة حتى يُلغى الرابط (LinkPhoneConfirmation).
  */
 class CompleteAdminPasswordReset
 {
@@ -22,8 +25,12 @@ class CompleteAdminPasswordReset
     /**
      * @throws ValidationException
      */
-    public function handle(string $plainToken, string $password): User
+    public function handle(string $plainToken, string $password, ?string $phoneInput = null): User
     {
+        if (! TwoFactorPolicy::isRequired()) {
+            $this->confirmPhone($plainToken, $phoneInput);
+        }
+
         return DB::transaction(function () use ($plainToken, $password): User {
             $reset = AdminPasswordReset::query()
                 ->where('token_hash', hash('sha256', $plainToken))
@@ -36,7 +43,7 @@ class CompleteAdminPasswordReset
 
             $admin = User::query()->whereKey($reset->user_id)->lockForUpdate()->first();
 
-            if ($admin === null || $admin->role !== UserRole::Admin || ! $admin->is_active) {
+            if ($admin === null || ! IssueAdminResetLink::isEligible($admin) || ! $admin->is_active) {
                 throw ValidationException::withMessages(['form' => __('recovery.errors.token_used')]);
             }
 
@@ -48,5 +55,24 @@ class CompleteAdminPasswordReset
 
             return $admin;
         });
+    }
+
+    /**
+     * يُنفَّذ قبل معاملة التعيين كي يبقى عدّ المحاولات الخاطئة محفوظًا عند الرفض.
+     *
+     * @throws ValidationException
+     */
+    private function confirmPhone(string $plainToken, ?string $phoneInput): void
+    {
+        $reset = AdminPasswordReset::query()->where('token_hash', hash('sha256', $plainToken))->first();
+        $phone = $reset?->user?->phone;
+
+        if ($reset === null || ! $reset->isUsable() || $phone === null) {
+            throw ValidationException::withMessages(['form' => __('recovery.errors.token_used')]);
+        }
+
+        if (! LinkPhoneConfirmation::confirm($reset, $phone, (string) $phoneInput)) {
+            throw ValidationException::withMessages(['phone' => __('admin.errors.phone_mismatch')]);
+        }
     }
 }

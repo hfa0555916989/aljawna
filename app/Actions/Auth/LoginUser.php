@@ -8,6 +8,7 @@ use App\Models\LoginAttempt;
 use App\Models\User;
 use App\Services\LoginThrottle;
 use App\Support\SaudiPhone;
+use App\Support\TwoFactorPolicy;
 use Closure;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -18,6 +19,7 @@ use Illuminate\Validation\ValidationException;
  *
  * لأدوار لوحة الإدارة خطوة ثانية (رمز TOTP أو رمز استرداد) تمرّ بنفس القفل
  * ونفس السجل، ولا يُسجَّل الدخول ناجحًا إلا بعد اجتيازها (docs/DECISIONS.md).
+ * ولا خطوة ثانية لأحد متى كان TWO_FACTOR_REQUIRED=false (App\Support\TwoFactorPolicy).
  */
 class LoginUser
 {
@@ -67,7 +69,7 @@ class LoginUser
             throw ValidationException::withMessages(['phone' => __('auth.inactive')]);
         }
 
-        if (! $forTwoFactorSetup && $user->hasPanelRole() && ! $user->hasTwoFactorEnabled()) {
+        if (! $forTwoFactorSetup && TwoFactorPolicy::isRequired() && $user->hasPanelRole() && ! $user->hasTwoFactorEnabled()) {
             $this->recordAttempt($identifier, $ip, succeeded: false);
 
             throw ValidationException::withMessages(['phone' => __('auth.two_factor.setup_required')]);

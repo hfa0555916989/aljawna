@@ -7,7 +7,9 @@ namespace App\Livewire\Auth;
 use App\Actions\Auth\LoginUser;
 use App\Models\User;
 use App\Services\Audit;
+use App\Services\Turnstile;
 use App\Support\TwoFactorEnrollment;
+use App\Support\TwoFactorPolicy;
 use App\Support\TwoFactorSession;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
@@ -25,7 +27,9 @@ use Livewire\Component;
  * أدوار اللوحة (مشرف أو مدير) تمرّ بخطوة ثانية إن فعّلت التحقق بخطوتين: رمز من
  * تطبيق المصادقة أو رمز استرداد، يتحقق منه مزوّد Filament نفسه (AppAuthentication).
  * ومن لم يفعّله بعد لا يدخل بكلمة المرور وحدها، بل يُعدّه أولًا من رابط الدعوة أو
- * رابط الإعداد من admin:reset-2fa (LoginUser، docs/DECISIONS.md).
+ * رابط الإعداد من admin:reset-2fa (LoginUser، docs/DECISIONS.md). ومتى كان
+ * TWO_FACTOR_REQUIRED=false فلا خطوة ثانية لأحد (App\Support\TwoFactorPolicy).
+ * Turnstile يسبق التحقق من كلمة المرور متى كان مفعَّلًا في الإعدادات.
  * بعد الدخول: أدوار اللوحة إلى اللوحة، والمبادر إلى /dashboard.
  */
 #[Title('تسجيل الدخول')]
@@ -46,6 +50,8 @@ class Login extends Component
 
     public string $recoveryCode = '';
 
+    public string $turnstileToken = '';
+
     public bool $useRecoveryCode = false;
 
     /**
@@ -54,7 +60,7 @@ class Login extends Component
     #[Locked]
     public ?string $challengedUser = null;
 
-    public function login(LoginUser $loginUser): void
+    public function login(LoginUser $loginUser, Turnstile $turnstile): void
     {
         $this->validate([
             'phone' => ['required', 'string', 'max:32'],
@@ -63,17 +69,25 @@ class Login extends Component
 
         $ip = (string) request()->ip();
 
+        if (! $turnstile->verify($this->turnstileToken, $ip)) {
+            $this->reset('password');
+            $this->resetTurnstile();
+
+            throw ValidationException::withMessages(['turnstile' => __('auth.captcha_failed')]);
+        }
+
         try {
             $user = $loginUser->verifyCredentials($this->phone, $this->password, $ip);
         } catch (ValidationException $exception) {
             $this->reset('password');
+            $this->resetTurnstile();
 
             throw $exception;
         }
 
         $this->reset('password');
 
-        if ($user->hasPanelRole() && $user->hasTwoFactorEnabled()) {
+        if (TwoFactorPolicy::isRequired() && $user->hasPanelRole() && $user->hasTwoFactorEnabled()) {
             $this->challengedUser = Crypt::encryptString($user->getKey().'|'.now()->getTimestamp());
 
             return;
@@ -139,7 +153,17 @@ class Login extends Component
 
     public function render(): View
     {
-        return view('livewire.auth.login');
+        $turnstile = app(Turnstile::class);
+
+        return view('livewire.auth.login', [
+            'turnstileSiteKey' => $turnstile->isEnabled() ? $turnstile->siteKey() : null,
+        ]);
+    }
+
+    private function resetTurnstile(): void
+    {
+        $this->turnstileToken = '';
+        $this->dispatch('turnstile-reset');
     }
 
     private function completeLogin(User $user, bool $passedTwoFactor): void
@@ -185,7 +209,7 @@ class Login extends Component
             //
         }
 
-        if (! $user instanceof User || ! $user->hasPanelRole() || ! $user->hasTwoFactorEnabled()) {
+        if (! $user instanceof User || ! TwoFactorPolicy::isRequired() || ! $user->hasPanelRole() || ! $user->hasTwoFactorEnabled()) {
             $this->reset();
             $this->addError('phone', __('auth.two_factor.expired'));
 
