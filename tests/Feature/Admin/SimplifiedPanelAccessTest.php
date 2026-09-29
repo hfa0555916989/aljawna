@@ -290,7 +290,9 @@ describe('الدخول', function (): void {
 
         $this->get('/login')->assertOk()->assertSee('test-site-key', false);
 
-        Http::fake(['challenges.cloudflare.com/*' => Http::response(['success' => false])]);
+        Http::fake(['challenges.cloudflare.com/*' => Http::sequence()
+            ->push(['success' => false])
+            ->push(['success' => true])]);
 
         Livewire::test(Login::class)
             ->set('phone', '0512345678')
@@ -302,8 +304,6 @@ describe('الدخول', function (): void {
 
         expect(Auth::check())->toBeFalse()
             ->and(LoginAttempt::query()->count())->toBe(0);
-
-        Http::fake(['challenges.cloudflare.com/*' => Http::response(['success' => true])]);
 
         Livewire::test(Login::class)
             ->set('phone', '0512345678')
