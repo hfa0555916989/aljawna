@@ -32,6 +32,8 @@ class SystemAlerts
 
     public const string DATABASE_BACKUP_FAILED = 'database_backup_failed';
 
+    public const string RECEIPTS_PURGE_FAILED = 'receipts_purge_failed';
+
     public const string ERROR_SPIKE = 'error_spike';
 
     /**
@@ -88,6 +90,10 @@ class SystemAlerts
 
         if ($this->health->databaseBackup()['status'] === HealthStatus::Failing) {
             $problems[] = self::DATABASE_BACKUP_FAILED;
+        }
+
+        if ($this->health->receiptsPurge()['status'] === HealthStatus::Failing) {
+            $problems[] = self::RECEIPTS_PURGE_FAILED;
         }
 
         if ($this->health->isErrorSpike()) {
@@ -195,6 +201,7 @@ class SystemAlerts
             self::QUEUE_STALLED => $this->health->queueWorker()['value'],
             self::BACKUP_FAILED => $this->health->receiptsBackup()['value'],
             self::DATABASE_BACKUP_FAILED => $this->health->databaseBackup()['value'],
+            self::RECEIPTS_PURGE_FAILED => $this->health->receiptsPurge()['value'],
             self::ERROR_SPIKE => __('health.alerts.error_spike_details', [
                 'count' => (int) app(ErrorCounter::class)->countSince((int) config('monitoring.error_spike.window_minutes')),
                 'minutes' => (int) config('monitoring.error_spike.window_minutes'),

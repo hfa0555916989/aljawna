@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\StorageOperationFailed;
 use App\Support\BrandingImageType;
 use GdImage;
 use Illuminate\Filesystem\FilesystemAdapter;
@@ -19,6 +20,9 @@ use Illuminate\Validation\ValidationException;
  * فتسقط عنها كل بيانات EXIF وأي محتوى غير البكسلات، وتُحفظ باسم عشوائي على
  * قرص عام (تُخدم من نطاق الموقع نفسه). يوازي App\Services\ReceiptStorage لكن
  * على قرص عام وبلا PDF ولا رابط موقّع، لأن الشعار عام لا خاص.
+ *
+ * نتيجة الكتابة والحذف تُفحص: القرص العام بـ throw: false (وكذلك تعريف Laravel Cloud)، فالفشل
+ * يرمي StorageOperationFailed بدل أن يمرّ صامتًا، ويعرضه المستدعي رسالةً في اللوحة.
  */
 class BrandingImageStorage
 {
@@ -28,6 +32,7 @@ class BrandingImageStorage
 
     /**
      * @throws ValidationException
+     * @throws StorageOperationFailed
      */
     public function store(UploadedFile $file): string
     {
@@ -47,15 +52,20 @@ class BrandingImageStorage
         $contents = $this->reencode($original, $type);
         $path = Str::random(40).'.'.$type->extension();
 
-        $this->disk()->put($path, $contents);
+        if ($this->disk()->put($path, $contents) !== true) {
+            throw StorageOperationFailed::write($this->diskName());
+        }
 
         return $path;
     }
 
+    /**
+     * @throws StorageOperationFailed
+     */
     public function delete(?string $path): void
     {
-        if ($path !== null) {
-            $this->disk()->delete($path);
+        if ($path !== null && $this->disk()->delete($path) !== true) {
+            throw StorageOperationFailed::delete($this->diskName());
         }
     }
 
@@ -80,7 +90,12 @@ class BrandingImageStorage
     public function disk(): FilesystemAdapter
     {
         /** @var FilesystemAdapter */
-        return Storage::disk((string) config('security.branding.disk'));
+        return Storage::disk($this->diskName());
+    }
+
+    private function diskName(): string
+    {
+        return (string) config('security.branding.disk');
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Exceptions\StorageOperationFailed;
 use App\Models\SiteBranding;
 use App\Models\User;
 use App\PermissionKey;
@@ -15,6 +16,7 @@ use App\Support\BrandColorPalette;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Log;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
@@ -122,22 +124,34 @@ class Branding extends PermissionPage
         $branding->secondary_color_key = $this->secondaryColorKey;
         $branding->updated_by = $actor instanceof User ? $actor->id : null;
 
-        if ($this->logoLight instanceof TemporaryUploadedFile) {
-            $storage->delete($branding->logo_light_path);
-            $branding->logo_light_path = $storage->store($this->logoLight);
-            $changes['logo_light_path'] = true;
+        // الصور الجديدة تُحفظ أولًا: إن فشل أيٌّ منها لا يتغير شيء، وتُحذف القديمة بعد الحفظ فقط.
+        $uploads = array_filter([
+            'logo_light_path' => $this->logoLight,
+            'logo_dark_path' => $this->logoDark,
+            'icon_path' => $this->icon,
+        ], fn (mixed $upload): bool => $upload instanceof TemporaryUploadedFile);
+
+        $stored = [];
+        $replaced = [];
+
+        try {
+            foreach ($uploads as $column => $upload) {
+                $stored[$column] = $storage->store($upload);
+            }
+        } catch (StorageOperationFailed) {
+            foreach ($stored as $path) {
+                rescue(fn () => $storage->delete($path), report: false);
+            }
+
+            Notification::make()->title(__('branding.store_failed'))->danger()->persistent()->send();
+
+            return;
         }
 
-        if ($this->logoDark instanceof TemporaryUploadedFile) {
-            $storage->delete($branding->logo_dark_path);
-            $branding->logo_dark_path = $storage->store($this->logoDark);
-            $changes['logo_dark_path'] = true;
-        }
-
-        if ($this->icon instanceof TemporaryUploadedFile) {
-            $storage->delete($branding->icon_path);
-            $branding->icon_path = $storage->store($this->icon);
-            $changes['icon_path'] = true;
+        foreach ($stored as $column => $path) {
+            $replaced[] = $branding->{$column};
+            $branding->{$column} = $path;
+            $changes[$column] = true;
         }
 
         $branding->save();
@@ -149,6 +163,31 @@ class Branding extends PermissionPage
         $this->reset('logoLight', 'logoDark', 'icon');
 
         Notification::make()->title(__('branding.saved'))->success()->send();
+
+        $this->deleteReplacedImages($storage, $replaced);
+    }
+
+    /**
+     * حذف الصور القديمة بعد حفظ البديلة. فشل الحذف لا يلغي الحفظ، ويُبلَّغ في اللوحة.
+     *
+     * @param  list<string|null>  $paths
+     */
+    private function deleteReplacedImages(BrandingImageStorage $storage, array $paths): void
+    {
+        $failed = false;
+
+        foreach ($paths as $path) {
+            try {
+                $storage->delete($path);
+            } catch (StorageOperationFailed) {
+                $failed = true;
+                Log::warning('Replaced branding image could not be deleted.');
+            }
+        }
+
+        if ($failed) {
+            Notification::make()->title(__('branding.delete_failed'))->warning()->send();
+        }
     }
 
     /**

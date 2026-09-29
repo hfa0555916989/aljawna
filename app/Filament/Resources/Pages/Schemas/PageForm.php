@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Pages\Schemas;
 
+use App\Exceptions\StorageOperationFailed;
 use App\Models\Page;
 use App\Rules\BrandingImageFile;
 use App\Rules\NoBankDetailsInContent;
@@ -23,9 +24,11 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Filament\Support\Icons\Heroicon;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -144,7 +147,7 @@ class PageForm
                         ->acceptedFileTypes(['image/png', 'image/jpeg'])
                         ->maxSize(fn (): int => (int) config('security.branding.max_kilobytes'))
                         ->rule(new BrandingImageFile)
-                        ->saveUploadedFileUsing(fn (TemporaryUploadedFile $file): string => app(BrandingImageStorage::class)->store($file)),
+                        ->saveUploadedFileUsing(fn (TemporaryUploadedFile $file): string => self::storeImage($file)),
                     self::text('alt', 150)->required(),
                     self::text('caption', 200),
                 ]),
@@ -247,6 +250,22 @@ class PageForm
                     Toggle::make('show_form')->label(__('pages.blocks.fields.show_form')),
                 ]),
         ];
+    }
+
+    /**
+     * يحفظ صورة كتلة الصورة. فشل التخزين يوقف حفظ الصفحة كله (مع التراجع) برسالة واضحة، بدل خطأ خادم.
+     *
+     * @throws Halt
+     */
+    private static function storeImage(TemporaryUploadedFile $file): string
+    {
+        try {
+            return app(BrandingImageStorage::class)->store($file);
+        } catch (StorageOperationFailed) {
+            Notification::make()->title(__('pages.image_store_failed'))->danger()->persistent()->send();
+
+            throw (new Halt)->rollBackDatabaseTransaction();
+        }
     }
 
     private static function text(string $name, int $maxLength): TextInput
