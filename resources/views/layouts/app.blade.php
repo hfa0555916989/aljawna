@@ -33,7 +33,7 @@
         <meta name="twitter:card" content="summary">
         @if (request()->routeIs('home'))
             {{-- اسم الموقع في نتائج Google بدل النطاق (WebSite)، وشعار الجهة (Organization). --}}
-            <script type="application/ld+json">{!! json_encode([
+            <script type="application/ld+json" nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">{!! json_encode([
                 '@context' => 'https://schema.org',
                 '@graph' => [
                     ['@type' => 'WebSite', 'name' => $branding->initiative_name, 'url' => \App\Support\Seo::baseUrl().'/', 'inLanguage' => 'ar'],
