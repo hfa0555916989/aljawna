@@ -113,6 +113,7 @@ bucket مربوط). وعند الإقلاع يستبدل `Illuminate\Foundation\
 | المتغير | الغرض |
 |---|---|
 | `TURNSTILE_ENABLED`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | مفاتيح Cloudflare Turnstile الحقيقية في الإنتاج (المفاتيح في `.env.example` تجريبية فقط) |
+| `GOOGLE_SITE_VERIFICATION` | اختياري: رمز وسم meta لـ Google Search Console. الافتراضي في `config/services.php` لـ `ajawna.com`، وفارغ يلغي الوسم |
 | `ALERT_EMAIL` | العنوان الوحيد الذي تصله تنبيهات التشغيل (المسؤول عن الدعم الفني). فارغ = لا تنبيهات |
 | `MAIL_MAILER`, `MAIL_SCHEME`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | **Resend عبر SMTP** لتنبيهات التشغيل فقط؛ لا بريد لأي مستخدم (استثناء محصور، docs/DECISIONS.md): `smtp` و`smtps` و`smtp.resend.com` و`465` و`resend` ومفتاح Resend بصلاحية الإرسال، والمرسل من دومين موثَّق في Resend. مع `log` تبقى التنبيهات في السجل. للتجربة: `php artisan alerts:test` |
 | `ALERT_COOLDOWN_MINUTES` | أقل فاصل لتكرار نفس التنبيه ما دامت المشكلة قائمة (60) |

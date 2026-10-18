@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\URL;
 /**
  * سجل هوية الموقع الوحيد (docs/SPEC.md FR-49): الاسم والشعار والأيقونة ولونان.
  *
+ * ارتفاع الشعار (logo_height) بالبكسل في رأس الموقع، وفي التذييل ثلاثة أرباعه.
+ *
  * صف واحد فقط (id = 1)، يُنشأ تلقائيًا بقيم افتراضية عند أول استدعاء لـ current().
  * الشعار/الأيقونة: null يعني استخدام ملفات SVG المعتمدة في resources/images/brand
  * (مُقدَّمة عبر مسار brand.asset)، وقيمة غير null تعني ملفًا مرفوعًا على قرص public
@@ -26,6 +28,7 @@ use Illuminate\Support\Facades\URL;
     'logo_light_path',
     'logo_dark_path',
     'icon_path',
+    'logo_height',
     'primary_color_key',
     'secondary_color_key',
     'updated_by',
@@ -41,6 +44,12 @@ class SiteBranding extends Model
     public const string DEFAULT_DARK_LOGO_ASSET = 'ajawna-wordmark-dark-transparent.svg';
 
     public const string DEFAULT_ICON_ASSET = 'ajawna-mark.svg';
+
+    public const int DEFAULT_LOGO_HEIGHT = 32;
+
+    public const int MIN_LOGO_HEIGHT = 24;
+
+    public const int MAX_LOGO_HEIGHT = 120;
 
     /**
      * سجل الهوية الحالي، يُنشأ بالقيم الافتراضية إن لم يوجد.
@@ -62,6 +71,7 @@ class SiteBranding extends Model
         $branding->forceFill([
             'id' => self::SINGLETON_ID,
             'initiative_name' => config('app.name'),
+            'logo_height' => self::DEFAULT_LOGO_HEIGHT,
             'primary_color_key' => config('branding.default_primary'),
             'secondary_color_key' => config('branding.default_secondary'),
         ]);
@@ -96,6 +106,26 @@ class SiteBranding extends Model
         return $this->logo_dark_path !== null
             ? Storage::disk((string) config('security.branding.disk'))->url($this->logo_dark_path)
             : URL::route('brand.asset', ['asset' => self::DEFAULT_DARK_LOGO_ASSET]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'logo_height' => 'integer',
+        ];
+    }
+
+    public function headerLogoHeight(): int
+    {
+        return max(self::MIN_LOGO_HEIGHT, min(self::MAX_LOGO_HEIGHT, (int) ($this->logo_height ?? self::DEFAULT_LOGO_HEIGHT)));
+    }
+
+    public function footerLogoHeight(): int
+    {
+        return (int) round($this->headerLogoHeight() * 0.75);
     }
 
     public function iconUrl(): string

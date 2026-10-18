@@ -27,6 +27,29 @@
         </label>
 
         @php($branding = \App\Models\SiteBranding::current())
+        @php($previewHeight = max(\App\Models\SiteBranding::MIN_LOGO_HEIGHT, min(\App\Models\SiteBranding::MAX_LOGO_HEIGHT, (int) $logoHeight)))
+
+        <div class="block text-sm sm:col-span-2">
+            <label for="branding-logo-height">{{ __('branding.logo_height') }}</label>
+            <div class="mt-1 flex items-center gap-3">
+                <input
+                    id="branding-logo-height"
+                    type="range"
+                    min="{{ \App\Models\SiteBranding::MIN_LOGO_HEIGHT }}"
+                    max="{{ \App\Models\SiteBranding::MAX_LOGO_HEIGHT }}"
+                    step="2"
+                    wire:model.live.debounce.250ms="logoHeight"
+                    class="min-h-11 w-full"
+                    data-branding-input="logo-height"
+                >
+                <span class="w-16 shrink-0 text-center tabular-nums" dir="ltr">{{ $previewHeight }}px</span>
+            </div>
+            <p class="mt-1 text-gray-500">{{ __('branding.logo_height_hint') }}</p>
+            <p class="mt-2 overflow-hidden rounded bg-white p-2">
+                <img src="{{ $branding->lightLogoUrl() }}" alt="" class="w-auto max-w-full object-contain" style="height: {{ $previewHeight }}px" data-branding-preview="logo-height">
+            </p>
+            @error('logoHeight') <span class="text-sm text-danger-600">{{ $message }}</span> @enderror
+        </div>
 
         <div class="block text-sm">
             {{ __('branding.logo_light') }}

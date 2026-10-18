@@ -21,7 +21,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 /**
- * صفحة الهوية: الاسم والشعار (فاتح/داكن) والأيقونة ولونان (docs/SPEC.md FR-49, FR-56).
+ * صفحة الهوية: الاسم والشعار (فاتح/داكن) ومقاسه والأيقونة ولونان (docs/SPEC.md FR-49, FR-56).
  *
  * الصلاحية content.manage. لا يمكن حفظ لون ضعيف التباين (App\Rules\AccessibleBrandColor)،
  * ورفع شعار جديد يمر بفحص نوع فعلي وإعادة ترميز (App\Rules\BrandingImageFile). كل حفظ
@@ -46,6 +46,8 @@ class Branding extends PermissionPage
 
     public string $secondaryColorKey = '';
 
+    public int $logoHeight = SiteBranding::DEFAULT_LOGO_HEIGHT;
+
     public ?TemporaryUploadedFile $logoLight = null;
 
     public ?TemporaryUploadedFile $logoDark = null;
@@ -59,6 +61,7 @@ class Branding extends PermissionPage
         $this->initiativeName = $branding->initiative_name;
         $this->primaryColorKey = $branding->primary_color_key;
         $this->secondaryColorKey = $branding->secondary_color_key;
+        $this->logoHeight = $branding->headerLogoHeight();
     }
 
     public static function getRequiredPermission(): PermissionKey
@@ -117,11 +120,16 @@ class Branding extends PermissionPage
             $changes['secondary_color_key'] = ['from' => $branding->secondary_color_key, 'to' => $this->secondaryColorKey];
         }
 
+        if ($branding->logo_height !== $this->logoHeight) {
+            $changes['logo_height'] = ['from' => $branding->logo_height, 'to' => $this->logoHeight];
+        }
+
         $actor = auth()->user();
 
         $branding->initiative_name = $this->initiativeName;
         $branding->primary_color_key = $this->primaryColorKey;
         $branding->secondary_color_key = $this->secondaryColorKey;
+        $branding->logo_height = max(SiteBranding::MIN_LOGO_HEIGHT, min(SiteBranding::MAX_LOGO_HEIGHT, $this->logoHeight));
         $branding->updated_by = $actor instanceof User ? $actor->id : null;
 
         // الصور الجديدة تُحفظ أولًا: إن فشل أيٌّ منها لا يتغير شيء، وتُحذف القديمة بعد الحفظ فقط.
@@ -199,6 +207,7 @@ class Branding extends PermissionPage
             'initiativeName' => ['required', 'string', 'min:2', 'max:255'],
             'primaryColorKey' => ['required', 'string', new AccessibleBrandColor(BrandColorPalette::ROLE_PRIMARY)],
             'secondaryColorKey' => ['required', 'string', new AccessibleBrandColor(BrandColorPalette::ROLE_SECONDARY)],
+            'logoHeight' => ['required', 'integer', 'between:'.SiteBranding::MIN_LOGO_HEIGHT.','.SiteBranding::MAX_LOGO_HEIGHT],
             'logoLight' => ['nullable', 'file', 'max:'.config('security.branding.max_kilobytes'), new BrandingImageFile],
             'logoDark' => ['nullable', 'file', 'max:'.config('security.branding.max_kilobytes'), new BrandingImageFile],
             'icon' => ['nullable', 'file', 'max:'.config('security.branding.max_kilobytes'), new BrandingImageFile],
@@ -211,6 +220,7 @@ class Branding extends PermissionPage
     protected function messages(): array
     {
         return [
+            'logoHeight.*' => __('branding.validation.logo_height', ['min' => SiteBranding::MIN_LOGO_HEIGHT, 'max' => SiteBranding::MAX_LOGO_HEIGHT]),
             'logoLight.max' => __('branding.validation.image_size'),
             'logoDark.max' => __('branding.validation.image_size'),
             'icon.max' => __('branding.validation.image_size'),

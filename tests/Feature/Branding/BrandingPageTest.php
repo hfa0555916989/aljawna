@@ -162,3 +162,32 @@ test('مسار brand.asset يقدّم SVG المعتمد فعليًا من resou
 test('مسار brand.asset يرفض اسم ملف غير معتمد بـ 404', function (): void {
     $this->get('/brand/not-an-allowed-file.svg')->assertNotFound();
 });
+
+test('ارتفاع الشعار يُحفظ ويظهر في رأس الموقع وتذييله ويُسجَّل في التدقيق', function (): void {
+    Livewire::actingAs(contentManager())
+        ->test(Branding::class)
+        ->assertSet('logoHeight', SiteBranding::DEFAULT_LOGO_HEIGHT)
+        ->set('logoHeight', 64)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(SiteBranding::current()->logo_height)->toBe(64)
+        ->and(AuditLog::query()->where('action', Branding::AUDIT_UPDATED)->sole()->meta)->toHaveKey('logo_height');
+
+    auth()->logout();
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('style="height: 64px"', false)
+        ->assertSee('style="height: 48px"', false);
+});
+
+test('ارتفاع الشعار خارج الحدود يُرفض', function (int $height): void {
+    Livewire::actingAs(contentManager())
+        ->test(Branding::class)
+        ->set('logoHeight', $height)
+        ->call('save')
+        ->assertHasErrors(['logoHeight']);
+
+    expect(SiteBranding::current()->logo_height)->toBe(SiteBranding::DEFAULT_LOGO_HEIGHT);
+})->with([SiteBranding::MIN_LOGO_HEIGHT - 1, SiteBranding::MAX_LOGO_HEIGHT + 1]);

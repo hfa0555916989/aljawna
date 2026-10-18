@@ -10,21 +10,37 @@
             $pageTitle = $title ?? $branding->initiative_name;
             $pageDescription = $description ?? __('site.meta.description');
             $siteMenu = app(\App\Services\SiteMenu::class);
+            $canonicalUrl = \App\Support\Seo::canonicalUrl(request());
+            $googleSiteVerification = \App\Support\Seo::googleSiteVerification();
         @endphp
         <title>{{ $pageTitle }}</title>
         <meta name="description" content="{{ $pageDescription }}">
-        @if ($noindex ?? false)
+        {{-- صفحات الدخول واللوحة والنطاقات غير الأساسية لا تُفهرس (App\Support\Seo). --}}
+        @if (($noindex ?? false) || ! \App\Support\Seo::shouldIndex(request()))
             <meta name="robots" content="noindex, nofollow">
         @endif
-        <link rel="canonical" href="{{ url()->current() }}">
+        @if ($googleSiteVerification !== null)
+            <meta name="google-site-verification" content="{{ $googleSiteVerification }}">
+        @endif
+        <link rel="canonical" href="{{ $canonicalUrl }}">
         <link rel="icon" type="image/svg+xml" href="{{ $branding->iconUrl() }}">
         <meta property="og:type" content="website">
         <meta property="og:site_name" content="{{ $branding->initiative_name }}">
         <meta property="og:locale" content="ar_SA">
         <meta property="og:title" content="{{ $pageTitle }}">
         <meta property="og:description" content="{{ $pageDescription }}">
-        <meta property="og:url" content="{{ url()->current() }}">
+        <meta property="og:url" content="{{ $canonicalUrl }}">
         <meta name="twitter:card" content="summary">
+        @if (request()->routeIs('home'))
+            {{-- اسم الموقع في نتائج Google بدل النطاق (WebSite)، وشعار الجهة (Organization). --}}
+            <script type="application/ld+json" nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">{!! json_encode([
+                '@context' => 'https://schema.org',
+                '@graph' => [
+                    ['@type' => 'WebSite', 'name' => $branding->initiative_name, 'url' => \App\Support\Seo::baseUrl().'/', 'inLanguage' => 'ar'],
+                    ['@type' => 'Organization', 'name' => $branding->initiative_name, 'url' => \App\Support\Seo::baseUrl().'/', 'logo' => $branding->iconUrl()],
+                ],
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) !!}</script>
+        @endif
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         {{-- ألوان الهوية (--pri, --brass) من site_branding، تُحقن بعد الأنماط الافتراضية لتجاوزها (tasks/T16-branding.md #4). --}}
@@ -36,8 +52,8 @@
         <header class="border-b border-line safe-area-top">
             <div class="mx-auto max-w-6xl px-4 py-2 flex flex-wrap items-center justify-between gap-x-4">
                 <a href="{{ url('/') }}" class="flex min-h-11 items-center gap-2 whitespace-nowrap">
-                    <img src="{{ $branding->lightLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="h-8 w-auto dark:hidden" data-branding-logo="light">
-                    <img src="{{ $branding->darkLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="hidden h-8 w-auto dark:block" data-branding-logo="dark">
+                    <img src="{{ $branding->lightLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="w-auto max-w-[70vw] object-contain dark:hidden" style="height: {{ $branding->headerLogoHeight() }}px" data-branding-logo="light">
+                    <img src="{{ $branding->darkLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="hidden w-auto max-w-[70vw] object-contain dark:block" style="height: {{ $branding->headerLogoHeight() }}px" data-branding-logo="dark">
                 </a>
 
                 <nav aria-label="{{ __('pages.menus.locations.header') }}" class="flex flex-wrap items-center gap-x-1 whitespace-nowrap text-sm sm:gap-x-3">
@@ -80,8 +96,8 @@
                         @endforeach
                     </nav>
                 @endif
-                <img src="{{ $branding->lightLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="h-6 w-auto dark:hidden" data-branding-logo="light">
-                <img src="{{ $branding->darkLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="hidden h-6 w-auto dark:block" data-branding-logo="dark">
+                <img src="{{ $branding->lightLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="w-auto max-w-[70vw] object-contain dark:hidden" style="height: {{ $branding->footerLogoHeight() }}px" data-branding-logo="light">
+                <img src="{{ $branding->darkLogoUrl() }}" alt="{{ $branding->initiative_name }}" class="hidden w-auto max-w-[70vw] object-contain dark:block" style="height: {{ $branding->footerLogoHeight() }}px" data-branding-logo="dark">
                 <p>&copy; {{ now()->year }} {{ $branding->initiative_name }}</p>
             </div>
         </footer>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\PreviewPageController;
 use App\Http\Controllers\Admin\UpdateSupervisorPermissionsController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\BrandAssetController;
+use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\ShowPageController;
 use App\Http\Controllers\ShowTransferReceiptController;
 use App\Http\Controllers\SitemapController;
@@ -99,6 +100,7 @@ Route::prefix((string) config('admin.path'))
 // صفحة دخول Filament أُلغيت: الدخول موحّد عبر /login، والرابط القديم يُحوَّل إليه.
 Route::redirect('/'.config('admin.path').'/login', '/login')->name('admin.login.redirect');
 
+Route::get('/robots.txt', RobotsController::class)->name('robots');
 Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 
 // صفحات منشئ الصفحات: آخر مسار دائمًا (fallback)، فلا تحجب صفحةٌ مسارًا نظاميًا (FR-55).
