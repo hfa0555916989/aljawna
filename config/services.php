@@ -37,6 +37,11 @@ return [
         ],
     ],
 
+    // رمز التحقق من ملكية الموقع في Google Search Console (وسم meta في رأس الصفحات).
+    'google' => [
+        'site_verification' => env('GOOGLE_SITE_VERIFICATION', 'GKbQw1Qks4nysWFA1QqhEuPj6ne_CHSDeEpjkQKg0nE'),
+    ],
+
     'turnstile' => [
         'enabled' => (bool) env('TURNSTILE_ENABLED', true),
         'site_key' => env('TURNSTILE_SITE_KEY'),

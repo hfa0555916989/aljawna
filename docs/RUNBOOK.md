@@ -217,7 +217,7 @@ APP_NAME="مبادرة العجاونة"
 APP_ENV=production
 APP_DEBUG=false
 APP_KEY=<php artisan key:generate --show محليًا>
-APP_URL=https://testweb.help
+APP_URL=https://ajawna.com
 APP_TIMEZONE=Asia/Riyadh
 APP_LOCALE=ar
 APP_FALLBACK_LOCALE=ar
@@ -321,11 +321,11 @@ php artisan receipts:purge-expired --dry-run
 
 البريد في النظام **لتنبيهات التشغيل فقط** إلى عنوان واحد، بلا بيانات شخصية (docs/DECISIONS.md).
 
-1. Resend → **Domains → Add domain** → `testweb.help` (أو نطاق فرعي مثل `mail.testweb.help`)، والمنطقة
+1. Resend → **Domains → Add domain** → `ajawna.com` (أو نطاق فرعي مثل `mail.ajawna.com`)، والمنطقة
    **eu-west-1** إن كانت متاحة.
 2. أضف السجلات التي يعرضها Resend (DKIM من نوع TXT، وMX وTXT لـ SPF على النطاق الفرعي `send`) في
    Hostinger (القسم 13)، ثم **Verify**.
-3. **API Keys → Create API key:** الصلاحية **Sending access**، والنطاق `testweb.help` فقط.
+3. **API Keys → Create API key:** الصلاحية **Sending access**، والنطاق `ajawna.com` فقط.
 4. المتغيرات:
 
 ```dotenv
@@ -335,7 +335,7 @@ MAIL_HOST=smtp.resend.com
 MAIL_PORT=465
 MAIL_USERNAME=resend
 MAIL_PASSWORD=<مفتاح Resend>
-MAIL_FROM_ADDRESS=alerts@testweb.help
+MAIL_FROM_ADDRESS=alerts@ajawna.com
 MAIL_FROM_NAME="مبادرة العجاونة"
 ALERT_EMAIL=<بريد المالك>
 ```
@@ -369,14 +369,15 @@ php artisan admin:invite +9665XXXXXXXX
 
 ## 13. الدومين وسجلات DNS في Hostinger
 
-الدومين التجريبي `testweb.help` مسجّل في Hostinger، ويبقى DNS عنده؛ **نضيف سجلات فقط**.
+الدومين الدائم `ajawna.com`، ويبقى DNS عند مسجّله (الخطوات أدناه بأسماء Hostinger، وهي نفسها عند أي مسجّل)؛
+**نضيف سجلات فقط**. الدومين التجريبي السابق `testweb.help` أُلغي نهائيًا وفُصل عن البيئة.
 
-1. Laravel Cloud → البيئة → **Settings → Network → Add domain** → `testweb.help`:
+1. Laravel Cloud → البيئة → **Settings → Network → Add domain** → `ajawna.com`:
    - **Wildcard:** لا.
-   - **Redirect:** `www.testweb.help` → `testweb.help`.
+   - **Redirect:** `www.ajawna.com` → `ajawna.com`.
    - **Downtime preference:** بلا انقطاع (pre-verification)، فالدومين جديد.
    - **Cloudflare DNS:** لا (DNS في Hostinger، وغير proxied).
-2. Hostinger → **Domains → testweb.help → DNS / Nameservers → Manage DNS records**:
+2. Hostinger → **Domains → ajawna.com → DNS / Nameservers → Manage DNS records**:
    - احذف أي سجل `A` أو `AAAA` أو `CNAME` قديم للاسم `@` و`www` (صفحة Hostinger الافتراضية).
    - أضف **بالضبط** ما يعرضه Laravel Cloud (النوع والاسم والقيمة):
      - `TXT` باسم `_cf-custom-hostname` (إثبات الملكية).
@@ -387,13 +388,18 @@ php artisan admin:invite +9665XXXXXXXX
    تصل إلى ساعات). تحقق من جهازك:
 
 ```powershell
-nslookup -type=A testweb.help
-nslookup -type=TXT _cf-custom-hostname.testweb.help
+nslookup -type=A ajawna.com
+nslookup -type=TXT _cf-custom-hostname.ajawna.com
 ```
 
-4. اجعل `testweb.help` **Primary domain** للبيئة، واضبط `APP_URL=https://testweb.help`، ثم **Deploy**.
+4. اجعل `ajawna.com` **Primary domain** للبيئة، واضبط `APP_URL=https://ajawna.com`، ثم **Deploy**.
 5. سجلات Resend (القسم 11) تُضاف في المكان نفسه.
-6. **Edge network:** اترك HSTS معطَّلًا هناك (التطبيق يرسله)، و`X-Frame-Options`/`nosniff` على الافتراضي.
+6. **Google Search Console:** أضف خاصية **Domain** باسم `ajawna.com`، وأضف سجل `TXT` الذي تعرضه
+   (`google-site-verification=...`) للاسم `@` عند المسجّل، ثم **Verify**. وسم meta بالرمز نفسه مطبوع في رأس
+   كل صفحة (`GOOGLE_SITE_VERIFICATION`، config/services.php) لخاصية URL-prefix. بعد التحقق: **Sitemaps** →
+   `https://ajawna.com/sitemap.xml`. `robots.txt` و`noindex` يتبعان `APP_URL`: أي نطاق غيره (مثل
+   `*.laravel.cloud` أو `www` قبل التحويل) لا يُفهرس (App\Support\Seo).
+7. **Edge network:** اترك HSTS معطَّلًا هناك (التطبيق يرسله)، و`X-Frame-Options`/`nosniff` على الافتراضي.
 
 ---
 

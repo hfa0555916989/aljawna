@@ -540,7 +540,7 @@ approved_at| timestamp null| لا يظهر للعامة قبل الاعتماد
 الجودة| Pest 5 وLaravel Pint وLarastan وGitHub Actions| تُشغَّل تلقائيًا عند كل دمج  
 أدوات Cursor| Laravel Boost| يمدّ الوكلاء بوثائق الإصدار الصحيح عبر MCP  
 الاستضافة| Laravel Cloud (منطقة أوروبا)| موارد مُدارة: Serverless Postgres (استرجاع لأي لحظة 30 يومًا) وValkey وObject Storage، ومجدول وعامل طوابير مُداران، ونشر آلي من GitHub (`docs/RUNBOOK.md`)  
-النطاق والحماية| مسجّل نطاق (Hostinger، سجلات DNS فقط) وشبكة Laravel Cloud (Cloudflare)| TLS تلقائي وحماية DDoS. الدومين التجريبي `testweb.help` ويتغير لاحقًا  
+النطاق والحماية| مسجّل نطاق (Hostinger، سجلات DNS فقط) وشبكة Laravel Cloud (Cloudflare)| TLS تلقائي وحماية DDoS. الدومين الدائم `ajawna.com` (التجريبي `testweb.help` أُلغي)  
 الكابتشا| Cloudflare Turnstile مع حقل فخ|   
 الرسائل| لا بريد ولا رسائل نصية للمستخدمين| روابط `wa.me` يفتحها المشرف. الاستثناء الوحيد: تنبيهات تشغيل للمالك عبر Resend بلا بيانات شخصية  
 الشيفرة| Git على الجهاز ومستودع خاص على GitHub| فرع `main` محمي، وفرع لكل مهمة، ودمج بعد نجاح الاختبارات، ونشر آلي  
