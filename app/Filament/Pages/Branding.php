@@ -129,7 +129,7 @@ class Branding extends PermissionPage
         $branding->initiative_name = $this->initiativeName;
         $branding->primary_color_key = $this->primaryColorKey;
         $branding->secondary_color_key = $this->secondaryColorKey;
-        $branding->logo_height = $this->logoHeight;
+        $branding->logo_height = max(SiteBranding::MIN_LOGO_HEIGHT, min(SiteBranding::MAX_LOGO_HEIGHT, $this->logoHeight));
         $branding->updated_by = $actor instanceof User ? $actor->id : null;
 
         // الصور الجديدة تُحفظ أولًا: إن فشل أيٌّ منها لا يتغير شيء، وتُحذف القديمة بعد الحفظ فقط.
