@@ -31,9 +31,10 @@ class AuthenticateAdminPanel extends Authenticate
         $this->auth->shouldUse(Filament::getAuthGuard());
 
         $user = $guard->user();
+        $panel = Filament::getPanel('admin');
 
         abort_unless(
-            $user instanceof User && $user->canAccessPanel(Filament::getPanel('admin')),
+            $user instanceof User && $panel && $user->canAccessPanel($panel),
             404,
         );
     }

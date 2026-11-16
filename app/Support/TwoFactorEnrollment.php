@@ -107,7 +107,8 @@ final class TwoFactorEnrollment
 
     public static function provider(): AppAuthentication
     {
-        $provider = Filament::getPanel('admin')->getMultiFactorAuthenticationProviders()['app'] ?? null;
+        $providers = Filament::getPanel('admin')?->getMultiFactorAuthenticationProviders() ?? [];
+        $provider = $providers['app'] ?? null;
 
         return $provider instanceof AppAuthentication ? $provider : AppAuthentication::make()->recoverable();
     }
